@@ -1,0 +1,12 @@
+#!/bin/sh
+
+. /usr/share/kvm-wrapper/net/kvm-net.conf
+
+echo "$0:"
+
+echo "Removing $1 from bridge $BRIDGE"
+ip link set $1 down
+brctl delif "$BRIDGE" $1
+
+exit 0
+
