@@ -56,6 +56,18 @@ function test_file_rw ()
 	[[ -f "$FILE" && -r "$FILE" && -w "$FILE" ]]
 }
 
+function test_socket ()
+{
+	FILE="$1"
+	[[ -S "$FILE" && -r "$FILE" ]]
+}
+
+function test_socket_rw ()
+{
+	FILE="$1"
+	[[ -S "$FILE" && -r "$FILE" && -w "$FILE" ]]
+}
+
 function check_create_dir ()
 {
 	DIR="$1"
@@ -149,11 +161,12 @@ function kvm_start_vm ()
 	# Build kvm exec string
 	EXEC_STRING="$KVM_BIN -m $KVM_MEM -smp $KVM_CPU_NUM -net nic,model=$KVM_NETWORK_MODEL,macaddr=$KVM_MACADDRESS -net $KVM_NET_TAP $KVM_DRIVES -boot $KVM_BOOTDEVICE -k $KVM_KEYMAP $KVM_OUTPUT $LINUXBOOT $KVM_MONITORDEV $KVM_SERIALDEV -pidfile $PID_FILE $KVM_ADDITIONNAL_PARAMS"
 
-	# More sanity checks : VM running, monitor socket existing, etc.
+	# More sanity checks : VM running, monitor socket existing, etc.
 	test_file "$PID_FILE" && fail_exit "VM $VM_NAME seems to be running already.\nPID file $PID_FILE exists"
 	rm -rf "$MONITOR_FILE"
 	rm -rf "$SERIAL_FILE"
-	#test_file "$MONITOR_FILE" && fail_exit "Monitor socket $MONITOR_FILE already existing and couldn't be removed"
+	test_socket "$MONITOR_FILE" && fail_exit "Monitor socket $MONITOR_FILE already existing and couldn't be removed"
+	test_socket "$SERIAL_FILE" && fail_exit "Serial socket $SERIAL_FILE already existing and couldn't be removed"
 
 
 	# Now run kvm
@@ -184,7 +197,7 @@ function kvm_stop_vm ()
 
 	TIMELIMIT=30
 
-	# Send monitor command through unix socket
+	# Send monitor command through unix socket
 	echo "Trying to powerdown the VM $VM_NAME first, might take some time (up to $TIMELIMIT sec)"
 	echo "system_powerdown" | socat - unix:"$MONITOR_FILE"
 	echo -n "Waiting ..."
@@ -205,7 +218,7 @@ function kvm_stop_vm ()
 		echo "VM powerdown properly :)"
 	else
 	
-		# kill - SIGTERM
+		# kill - SIGTERM
 		KVM_PID="`cat $PID_FILE`"
 		echo "Now trying to terminate (SIGTERM) $VM_NAME, pid $KVM_PID"
 		kill "$KVM_PID"
@@ -252,6 +265,7 @@ function kvm_monitor ()
 	PID_FILE="$PID_DIR/$VM_NAME-vm.pid"
 	! test_file "$PID_FILE" && fail_exit "Error : $VM_NAME doesn't seem to be running."
 	MONITOR_FILE="$MONITOR_DIR/$VM_NAME.unix"
+	! test_socket_rw "$MONITORL_FILE" && fail_exit "Error : could not open monitor socket $MONITOR_FILE."
 	echo "Attaching monitor unix socket (using socat). Press ^D (EOF) to exit"
 	socat - unix:"$MONITOR_FILE"
 	echo "Monitor exited"
@@ -263,6 +277,7 @@ function kvm_serial ()
 	PID_FILE="$PID_DIR/$VM_NAME-vm.pid"
 	! [[ -f "$PID_FILE" ]] && fail_exit "Error : $VM_NAME doesn't seem to be running."
 	SERIAL_FILE="$SERIAL_DIR/$VM_NAME.unix"
+	! test_socket_rw "$SERIAL_FILE" && fail_exit "Error : could not open serial socket $SERIAL_FILE."
 	echo "Attaching serial console unix socket (using socat). Press ^] to exit"
 	socat -,IGNBRK=0,BRKINT=0,PARMRK=0,ISTRIP=0,INLCR=0,IGNCR=0,ICRNL=0,IXON=0,OPOST=1,ECHO=0,ECHONL=0,ICANON=0,ISIG=0,IEXTEN=0,CSIZE=0,PARENB=0,CS8,escape=0x1d unix:"$SERIAL_FILE"
 	[[ "xx$?" != "xx0" ]] && fail_exit "socat must be of version > 1.7.0 to work"
@@ -337,8 +352,30 @@ function kvm_create_descriptor ()
 		HDA_LINE="KVM_HDA=\"$KVM_IMG_DISKNAME\""
 		sed -i "s,##KVM_HDA,$HDA_LINE,g" "$VM_DESCRIPTOR"
 	fi
+	MAC_ADDR="`random_mac`"
+	sed -i 's/`random_mac`/'"$MAC_ADDR/g" "$VM_DESCRIPTOR"
+	sed -i 's/#KVM_MAC/KVM_MAC/g' "$VM_DESCRIPTOR"
 
 	echo "VM $VM_NAME created. Descriptor : $VM_DESCRIPTOR"
+}
+
+function kvm_remove ()
+{
+	VM_NAME="$1"
+	VM_DESCRIPTOR="$VM_DIR/$VM_NAME-vm"
+	test_file_rw "$VM_DESCRIPTOR" || fail_exit "Couldn't read/write VM $VM_NAME descriptor :\n$VM_DESCRIPTOR"
+	source "$VM_DESCRIPTOR"
+	DRIVES_LIST=""
+	[[ -n "$KVM_HDA" ]] && DRIVES_LIST="$DRIVES_LIST$KVM_HDA\n"
+	[[ -n "$KVM_HDB" ]] && DRIVES_LIST="$DRIVES_LIST$KVM_HDB\n"
+	[[ -n "$KVM_HDC" ]] && DRIVES_LIST="$DRIVES_LIST$KVM_HDC\n"
+	[[ -n "$KVM_HDD" ]] && DRIVES_LIST="$DRIVES_LIST$KVM_HDD\n"
+	if [[ -n "$DRIVES_LIST" ]]; then
+		echo "The VM $VM_NAME used the following disks (NOT removed by $SCRIPT_NAME :"
+		echo -e "$DRIVES_LIST"
+	fi
+	rm -f "$VM_DESCRIPTOR"
+	test_file "$VM_DESCRIPTOR" && fail_exit "Failed to remove descriptor $VM_DSCRIPTOR."
 }
 
 function print_help ()
@@ -352,6 +389,7 @@ function print_help ()
 	echo -e ""
 	echo -e "       $SCRIPT_NAME edit   virtual-machine"
 	echo -e "       $SCRIPT_NAME create virtual-machine [diskimage] [size]"
+	echo -e "       $SCRIPT_NAME remove virtual-machine"
 	exit 2
 }
 
@@ -415,6 +453,9 @@ then
 		  ;;
 		create)
 		  kvm_create_descriptor "$2"
+		  ;;
+		remove)
+		  kvm_remove "$2"
 		  ;;
 		*)
 		  print_help
