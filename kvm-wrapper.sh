@@ -160,7 +160,7 @@ function kvm_start_vm ()
 	echo $EXEC_STRING
 	echo ""
 	echo ""
-	$EXEC_STRING
+	eval $EXEC_STRING
 
 	# Cleanup files
 	rm -rf "$PID_FILE"
