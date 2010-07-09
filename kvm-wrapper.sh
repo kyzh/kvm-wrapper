@@ -265,7 +265,7 @@ function kvm_monitor ()
 	PID_FILE="$PID_DIR/$VM_NAME-vm.pid"
 	! test_file "$PID_FILE" && fail_exit "Error : $VM_NAME doesn't seem to be running."
 	MONITOR_FILE="$MONITOR_DIR/$VM_NAME.unix"
-	! test_socket_rw "$MONITORL_FILE" && fail_exit "Error : could not open monitor socket $MONITOR_FILE."
+	! test_socket_rw "$MONITOR_FILE" && fail_exit "Error : could not open monitor socket $MONITOR_FILE."
 	echo "Attaching monitor unix socket (using socat). Press ^D (EOF) to exit"
 	socat - unix:"$MONITOR_FILE"
 	echo "Monitor exited"
