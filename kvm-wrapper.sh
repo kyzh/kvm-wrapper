@@ -181,7 +181,7 @@ function kvm_start_vm ()
 	rm -rf "$SERIAL_FILE"
 
 	# Exit
-	exit 0
+	return 0
 }
 
 
@@ -226,7 +226,7 @@ function kvm_stop_vm ()
 
 	rm -rf "$PID_FILE" || fail_exit "Couldn't remove pid file"
 	
-	exit 0
+	return 0
 }
 
 function kvm_run_disk ()
@@ -238,7 +238,7 @@ function kvm_run_disk ()
 	EXEC_STRING="kvm -net nic,model=$KVM_NETWORK_MODEL,macaddr=$KVM_MACADDRESS -net tap -hda $KVM_HDA -boot c -k $KVM_KEYMAP $KVM_OUTPUT $KVM_ADDITIONNAL_PARAMS"
 	$EXEC_STRING
 
-	exit 0
+	return 0
 }
 
 function kvm_start_screen ()
@@ -247,7 +247,7 @@ function kvm_start_screen ()
 	SCREEN_SESSION_NAME="kvm-$VM_NAME"
 	screen -d -m -S "$SCREEN_SESSION_NAME" /bin/sh -c "\"$SCRIPT_PATH\" start \"$VM_NAME\""
 	EXITNUM="$?"
-	exit $EXITNUM
+	return $EXITNUM
 }
 
 function kvm_attach_screen ()
