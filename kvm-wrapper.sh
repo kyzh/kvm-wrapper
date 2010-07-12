@@ -25,6 +25,7 @@ function canonpath ()
 	echo $(cd $(dirname $1); pwd -P)/$(basename $1)
 }
 
+# Exit on fail and print a nice message
 function fail_exit ()
 {
 	echo -e "$1"
@@ -32,6 +33,7 @@ function fail_exit ()
 	exit 1
 }
 
+# File/socket/directory tester
 function test_dir ()
 {
 	DIR="$1"
@@ -90,10 +92,51 @@ MACADDRESS="52:54:00:ff""$STR"
 echo -ne $MACADDRESS
 }
 
+function bs_copy_from_host()
+{
+	FILE="$1"
+	cp -rf "$FILE" "$MNTDIR/$FILE"
+}
+
+# Update (if exists) descriptor setting and keep a backup, create otherwise
+function desc_update_backup_setting ()
+{
+	KEY="$1"
+	VALUE="$2"
+	IDENT=$RANDOM
+
+	#sed -i "s/^$KEY.*/#\0 ###AUTO$IDENT\n$KEY=$(escape_sed "\"$VALUE\"") ###AUTO$IDENT/g" "$VM_DESCRIPTOR"
+	sed -i "s/^$KEY.*/#\0 ###AUTO$IDENT/g" "$VM_DESCRIPTOR"
+	echo "$KEY=\"$VALUE\" ###AUTO$IDENT" >> "$VM_DESCRIPTOR"
+
+	echo $IDENT
+}
+
+# Overwrite (or create) descriptor setting
+function desc_update_setting ()
+{
+	KEY="$1"
+	VALUE="$2"
+
+	#sed -i "s/^$KEY.*/$KEY=$(escape_sed "\"$VALUE\"") ###AUTO/g" "$VM_DESCRIPTOR"
+	sed -i "/^$KEY.*/d" "$VM_DESCRIPTOR"
+	echo "$KEY=\"$VALUE\" ###AUTO" >> "$VM_DESCRIPTOR"
+}
+
+# Revert descriptor setting modified by this script
+function desc_revert_setting()
+{
+	IDENT=$1
+	sed -i "/^[^#].*###AUTO$IDENT$/d" "$VM_DESCRIPTOR"
+	sed -ie "s/^#\(.*\)###AUTO$IDENT$/\1/g" "$VM_DESCRIPTOR"
+}
+
+# VM Status
 function kvm_status_vm ()
 {
 	VM_NAME="$1"
 	PID_FILE="$PID_DIR/$VM_NAME-vm.pid"
+	test_file "$PID_FILE" || fail_exit "Error : $VM_NAME doesn't seem to be running."
 	status_from_pid_file "$PID_FILE"
 }
 
@@ -118,6 +161,7 @@ function kvm_status ()
 	fi
 }
 
+# Main function : start a virtual machine
 function kvm_start_vm ()
 {
 	VM_NAME="$1"
@@ -359,6 +403,28 @@ function kvm_create_descriptor ()
 	echo "VM $VM_NAME created. Descriptor : $VM_DESCRIPTOR"
 }
 
+function kvm_bootstrap_vm ()
+{
+	VM_NAME="$1"
+	VM_DESCRIPTOR="$VM_DIR/$VM_NAME-vm"
+	test_file_rw "$VM_DESCRIPTOR" || fail_exit "Couldn't read/write VM $VM_NAME descriptor :\n$VM_DESCRIPTOR"
+	source "$VM_DESCRIPTOR"
+
+	test_file "$PID_FILE" || fail_exit "Error : $VM_NAME seems to be running. Please stop it before trying to bootstrap it."
+
+	BOOTSTRAP_DISTRIB="$2"
+	BOOTSTRAP_SCRIPT="$BOOTSTRAP_DIR/$BOOTSTRAP_DISTRIB/bootstrap.sh"
+	test_file "$BOOTSTRAP_SCRIPT" || fail_exit "Couldn't read $BOOTSTRAP_SCRIPT to bootstrap $VM_NAME as $BOOTSTRAP_DISTRIB"
+	source "$BOOTSTRAP_SCRIPT"
+	
+	# Start bootstrap
+	echo "Starting to bootstrap $VM_NAME as $BOOTSTRAP_DISTRIB on disk $KVM_HDA"
+	bootstrap_fs "$KVM_HDA"
+	echo "Bootstrap ended."
+	return 0
+
+}
+
 function kvm_remove ()
 {
 	VM_NAME="$1"
@@ -466,6 +532,9 @@ then
 	case "$1" in
 		create)
 		  kvm_create_descriptor "$2" "$3"
+		  ;;
+		bootstrap)
+		  kvm_bootstrap_vm "$2" "$3"
 		  ;;
 		*)
 		  print_help
