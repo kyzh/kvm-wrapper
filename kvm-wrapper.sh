@@ -410,7 +410,8 @@ function kvm_bootstrap_vm ()
 	test_file_rw "$VM_DESCRIPTOR" || fail_exit "Couldn't read/write VM $VM_NAME descriptor :\n$VM_DESCRIPTOR"
 	source "$VM_DESCRIPTOR"
 
-	test_file "$PID_FILE" || fail_exit "Error : $VM_NAME seems to be running. Please stop it before trying to bootstrap it."
+	PID_FILE="$PID_DIR/$VM_NAME-vm.pid"
+	test_file "$PID_FILE" && fail_exit "Error : $VM_NAME seems to be running. Please stop it before trying to bootstrap it."
 
 	BOOTSTRAP_DISTRIB="$2"
 	BOOTSTRAP_SCRIPT="$BOOTSTRAP_DIR/$BOOTSTRAP_DISTRIB/bootstrap.sh"
