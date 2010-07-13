@@ -77,6 +77,24 @@ function check_create_dir ()
 	test_dir_rw "$DIR" || fail_exit "Couldn't read/write VM PID directory :\n$DIR"
 }
 
+function wait_test_timelimit ()
+{
+	PROPER=0
+	ELAPSED=0
+	TIMELIMIT=$1
+	EVAL_EXPR=$2
+	while [[ $ELAPSED -le $TIMELIMIT ]]
+	do
+		ELAPSED=$(($ELAPSED+1))
+		eval "$EVAL_EXPR" && PROPER=1;
+		[[ $PROPER -eq 1 ]] && break
+		sleep 1
+	done
+	echo $ELAPSED
+	[[ $PROPER -eq 1 ]] && return 0
+	return 1
+}
+
 function random_mac ()
 {
 # Macaddress : 52:54:00:ff:34:56
@@ -129,6 +147,17 @@ function desc_revert_setting()
 	IDENT=$1
 	sed -i "/^[^#].*###AUTO$IDENT$/d" "$VM_DESCRIPTOR"
 	sed -ie "s/^#\(.*\)###AUTO$IDENT$/\1/g" "$VM_DESCRIPTOR"
+}
+
+function monitor_send_cmd ()
+{
+	echo "$1" | socat STDIN unix:"$MONITOR_FILE"
+}
+
+function monitor_send_sysrq ()
+{
+	SYSRQ="$1"
+	monitor_send_cmd "sendkey ctrl-alt-sysrq-$SYSRQ"
 }
 
 # VM Status
@@ -228,8 +257,6 @@ function kvm_start_vm ()
 	return 0
 }
 
-
-
 function kvm_stop_vm ()
 {
 	VM_NAME="$1"
@@ -239,36 +266,47 @@ function kvm_stop_vm ()
 	test_file "$PID_FILE" || fail_exit "VM $VM_NAME doesn't seem to be running.\nPID file $PID_FILE not found"
 #	test_file_rw "$MONITOR_FILE" || fail_exit "Monitor socket $MONITOR_FILE not existing or not writable"
 
-	TIMELIMIT=30
+	TIMELIMIT=20
 
 	# Send monitor command through unix socket
 	echo "Trying to powerdown the VM $VM_NAME first, might take some time (up to $TIMELIMIT sec)"
-	echo "system_powerdown" | socat - unix:"$MONITOR_FILE"
+	monitor_send_cmd "system_powerdown"
 	echo -n "Waiting ..."
 
 	# Now wait for it
-	ELAPSED=0
-	while [[ $ELAPSED -le $TIMELIMIT ]]
-	do
-		ELAPSED=$(($ELAPSED+1))
-		! test_file "$PID_FILE" && PROPER=1;
-		[[ $PROPER -eq 1 ]] && break
-		sleep 1
-	done
+	ELAPSED=$(wait_test_timelimit $TIMELIMIT "! test_file $PID_FILE")
+	PROPER=!$?
 	echo " elapsed time : $ELAPSED sec"
 
 	if [[ $PROPER -eq 1 ]];
 	then
 		echo "VM powerdown properly :)"
 	else
-	
-		# kill - SIGTERM
-		KVM_PID="`cat $PID_FILE`"
-		echo "Now trying to terminate (SIGTERM) $VM_NAME, pid $KVM_PID"
-		kill "$KVM_PID"
+
+		echo "Trying with magic-sysrq ... (10sec)"
+		monitor_send_sysrq r && sleep 2
+		monitor_send_sysrq e && sleep 2
+		monitor_send_sysrq i && sleep 2
+		monitor_send_sysrq s && sleep 2
+		monitor_send_sysrq u && sleep 2
+		monitor_send_sysrq o && sleep 2
+
+		if test_file "$PID_FILE"
+		then
+			echo "Trying to monitor-quit the qemu instance."
+			monitor_send_cmd "quit" && sleep 2
+
+			if test_file "$PID_FILE"
+			then
+				# kill - SIGTERM
+				KVM_PID="`cat $PID_FILE`"
+				echo "Now trying to terminate (SIGTERM) $VM_NAME, pid $KVM_PID"
+				kill "$KVM_PID"
+			fi
+		fi
 	fi
 
-	rm -rf "$PID_FILE" || fail_exit "Couldn't remove pid file"
+	! test_file "PID_FILE" && echo "VM $VM_NAME is now down."
 	
 	return 0
 }

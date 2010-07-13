@@ -5,10 +5,10 @@
 #
 
 ### Configuration
-REPOSITORY="http://ftp.fr.debian.org/debian/"
-FLAVOR="lenny"
-LINUX_IMAGE="linux-image-2.6-686"
-EXTRA_PKGS="vim-nox,htop,screen,less,bzip2,bash-completion,locate,$LINUX_IMAGE"
+BOOTSTRAP_REPOSITORY="http://ftp.fr.debian.org/debian/"
+BOOTSTRAP_FLAVOR="lenny"
+BOOTSTRAP_LINUX_IMAGE="linux-image-2.6-686"
+BOOTSTRAP_EXTRA_PKGSS="vim-nox,htop,screen,less,bzip2,bash-completion,locate,acpid,$BOOTSTRAP_LINUX_IMAGE"
 ### 
 
 function bootstrap_fs()
@@ -22,7 +22,7 @@ function bootstrap_fs()
 	mount "$DISKDEV" "$MNTDIR"
 	
 	# Now debootstrap, first stage (do not configure)
-	debootstrap --foreign --include="$EXTRA_PKGS" "$FLAVOR" "$MNTDIR" "$REPOSITORY"
+	debootstrap --foreign --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_REPOSITORY"
 	
 	# init script to be run on first VM boot
 	BS_FILE="$MNTDIR/bootstrap-init.sh"
