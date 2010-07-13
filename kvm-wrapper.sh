@@ -36,53 +36,53 @@ function fail_exit ()
 # File/socket/directory tester
 function test_dir ()
 {
-	DIR="$1"
+	local DIR="$1"
 	[[ -d "$DIR" && -r "$DIR" ]]
 }
 
 function test_dir_rw ()
 {
-	DIR="$1"
+	local DIR="$1"
 	[[ -d "$DIR" && -r "$DIR" && -w "$DIR" ]]
 }
 
 function test_file ()
 {
-	FILE="$1"
+	local FILE="$1"
 	[[ -f "$FILE" && -r "$FILE" ]]
 }
 
 function test_file_rw ()
 {
-	FILE="$1"
+	local FILE="$1"
 	[[ -f "$FILE" && -r "$FILE" && -w "$FILE" ]]
 }
 
 function test_socket ()
 {
-	FILE="$1"
+	local FILE="$1"
 	[[ -S "$FILE" && -r "$FILE" ]]
 }
 
 function test_socket_rw ()
 {
-	FILE="$1"
+	local FILE="$1"
 	[[ -S "$FILE" && -r "$FILE" && -w "$FILE" ]]
 }
 
 function check_create_dir ()
 {
-	DIR="$1"
+	local DIR="$1"
 	test_dir_rw "$DIR" || mkdir -p "$DIR"
 	test_dir_rw "$DIR" || fail_exit "Couldn't read/write VM PID directory :\n$DIR"
 }
 
 function wait_test_timelimit ()
 {
-	PROPER=0
-	ELAPSED=0
-	TIMELIMIT=$1
-	EVAL_EXPR=$2
+	local PROPER=0
+	local ELAPSED=0
+	local TIMELIMIT=$1
+	local EVAL_EXPR=$2
 	while [[ $ELAPSED -le $TIMELIMIT ]]
 	do
 		ELAPSED=$(($ELAPSED+1))
@@ -98,30 +98,30 @@ function wait_test_timelimit ()
 function random_mac ()
 {
 # Macaddress : 52:54:00:ff:34:56
-RANGE=99
-STR=""
+local RANGE=99
+local STR=""
 for blah in 0 1
 do
-	number=$RANDOM
+	local number=$RANDOM
 	let "number %= $RANGE"
 	STR="$STR"":""$number"
 done
-MACADDRESS="52:54:00:ff""$STR"
+local MACADDRESS="52:54:00:ff""$STR"
 echo -ne $MACADDRESS
 }
 
 function bs_copy_from_host()
 {
-	FILE="$1"
+	local FILE="$1"
 	cp -rf "$FILE" "$MNTDIR/$FILE"
 }
 
 # Update (if exists) descriptor setting and keep a backup, create otherwise
 function desc_update_backup_setting ()
 {
-	KEY="$1"
-	VALUE="$2"
-	IDENT=$RANDOM
+	local KEY="$1"
+	local VALUE="$2"
+	local IDENT=$RANDOM
 
 	#sed -i "s/^$KEY.*/#\0 ###AUTO$IDENT\n$KEY=$(escape_sed "\"$VALUE\"") ###AUTO$IDENT/g" "$VM_DESCRIPTOR"
 	sed -i "s/^$KEY.*/#\0 ###AUTO$IDENT/g" "$VM_DESCRIPTOR"
@@ -133,8 +133,8 @@ function desc_update_backup_setting ()
 # Overwrite (or create) descriptor setting
 function desc_update_setting ()
 {
-	KEY="$1"
-	VALUE="$2"
+	local KEY="$1"
+	local VALUE="$2"
 
 	#sed -i "s/^$KEY.*/$KEY=$(escape_sed "\"$VALUE\"") ###AUTO/g" "$VM_DESCRIPTOR"
 	sed -i "/^$KEY.*/d" "$VM_DESCRIPTOR"
@@ -144,7 +144,7 @@ function desc_update_setting ()
 # Revert descriptor setting modified by this script
 function desc_revert_setting()
 {
-	IDENT=$1
+	local IDENT=$1
 	sed -i "/^[^#].*###AUTO$IDENT$/d" "$VM_DESCRIPTOR"
 	sed -ie "s/^#\(.*\)###AUTO$IDENT$/\1/g" "$VM_DESCRIPTOR"
 }
@@ -156,7 +156,7 @@ function monitor_send_cmd ()
 
 function monitor_send_sysrq ()
 {
-	SYSRQ="$1"
+	local SYSRQ="$1"
 	monitor_send_cmd "sendkey ctrl-alt-sysrq-$SYSRQ"
 }
 
@@ -171,7 +171,7 @@ function kvm_status_vm ()
 
 function status_from_pid_file ()
 {
-	VM_PID=`cat "$1"`
+	local VM_PID=`cat "$1"`
 	ps wwp "$VM_PID"
 }
 
@@ -209,14 +209,14 @@ function kvm_start_vm ()
 	[[ -z "$KVM_BIN" ]] && KVM_BIN="/usr/bin/kvm"
 
 	# Build KVM Drives (hdd, cdrom) parameters
-	KVM_DRIVES=""
+	local KVM_DRIVES=""
 	[[ -n "$KVM_HDA" ]] && KVM_DRIVES="$KVM_DRIVES -hda $KVM_HDA"
 	[[ -n "$KVM_HDB" ]] && KVM_DRIVES="$KVM_DRIVES -hdb $KVM_HDB"
 	[[ -n "$KVM_HDC" ]] && KVM_DRIVES="$KVM_DRIVES -hdc $KVM_HDC"
 	[[ -n "$KVM_HDD" ]] && KVM_DRIVES="$KVM_DRIVES -hdd $KVM_HDD"
 	[[ -n "$KVM_CDROM" ]] && KVM_DRIVES="$KVM_DRIVES -cdrom $KVM_CDROM"
 	[[ "$KVM_DRIVES" == "" ]] && fail_exit "Your VM $VM_NAME should at least use one cdrom or harddisk drive !\nPlease check your conf file :\n$VM_DESCRIPTOR"
-	LINUXBOOT=""
+	local LINUXBOOT=""
 	[[ -n "$KVM_KERNEL" ]] && LINUXBOOT="$LINUXBOOT -kernel $KVM_KERNEL"
 	[[ -n "$KVM_INITRD" ]] && LINUXBOOT="$LINUXBOOT -initrd $KVM_INITRD"
 	[[ -n "$KVM_APPEND" ]] && LINUXBOOT="$LINUXBOOT -append \"$KVM_APPEND\""
@@ -232,7 +232,7 @@ function kvm_start_vm ()
 	KVM_SERIALDEV="-serial unix:$SERIAL_FILE,server,nowait"
 
 	# Build kvm exec string
-	EXEC_STRING="$KVM_BIN -m $KVM_MEM -smp $KVM_CPU_NUM -net nic,model=$KVM_NETWORK_MODEL,macaddr=$KVM_MACADDRESS -net $KVM_NET_TAP $KVM_DRIVES -boot $KVM_BOOTDEVICE -k $KVM_KEYMAP $KVM_OUTPUT $LINUXBOOT $KVM_MONITORDEV $KVM_SERIALDEV -pidfile $PID_FILE $KVM_ADDITIONNAL_PARAMS"
+	local EXEC_STRING="$KVM_BIN -name $VM_NAME -m $KVM_MEM -smp $KVM_CPU_NUM -net nic,model=$KVM_NETWORK_MODEL,macaddr=$KVM_MACADDRESS -net $KVM_NET_TAP $KVM_DRIVES -boot $KVM_BOOTDEVICE -k $KVM_KEYMAP $KVM_OUTPUT $LINUXBOOT $KVM_MONITORDEV $KVM_SERIALDEV -pidfile $PID_FILE $KVM_ADDITIONNAL_PARAMS"
 
 	# More sanity checks : VM running, monitor socket existing, etc.
 	test_file "$PID_FILE" && fail_exit "VM $VM_NAME seems to be running already.\nPID file $PID_FILE exists"
@@ -264,9 +264,9 @@ function kvm_stop_vm ()
 	MONITOR_FILE="$MONITOR_DIR/$VM_NAME.unix"
 
 	test_file "$PID_FILE" || fail_exit "VM $VM_NAME doesn't seem to be running.\nPID file $PID_FILE not found"
-#	test_file_rw "$MONITOR_FILE" || fail_exit "Monitor socket $MONITOR_FILE not existing or not writable"
+#	test_socket_rw "$MONITOR_FILE" || fail_exit "Monitor socket $MONITOR_FILE not existing or not writable"
 
-	TIMELIMIT=20
+	local TIMELIMIT=20
 
 	# Send monitor command through unix socket
 	echo "Trying to powerdown the VM $VM_NAME first, might take some time (up to $TIMELIMIT sec)"
@@ -274,8 +274,8 @@ function kvm_stop_vm ()
 	echo -n "Waiting ..."
 
 	# Now wait for it
-	ELAPSED=$(wait_test_timelimit $TIMELIMIT "! test_file $PID_FILE")
-	PROPER=!$?
+	local ELAPSED=$(wait_test_timelimit $TIMELIMIT "! test_file $PID_FILE")
+	local PROPER=!$?
 	echo " elapsed time : $ELAPSED sec"
 
 	if [[ $PROPER -eq 1 ]];
@@ -299,7 +299,7 @@ function kvm_stop_vm ()
 			if test_file "$PID_FILE"
 			then
 				# kill - SIGTERM
-				KVM_PID="`cat $PID_FILE`"
+				local KVM_PID="`cat $PID_FILE`"
 				echo "Now trying to terminate (SIGTERM) $VM_NAME, pid $KVM_PID"
 				kill "$KVM_PID"
 			fi
@@ -317,8 +317,8 @@ function kvm_run_disk ()
 	test_file_rw "$KVM_HDA" || "Couldn't read/write image file :\n$KVM_HDA"
 
 	# Build kvm exec string
-	EXEC_STRING="kvm -net nic,model=$KVM_NETWORK_MODEL,macaddr=$KVM_MACADDRESS -net tap -hda $KVM_HDA -boot c -k $KVM_KEYMAP $KVM_OUTPUT $KVM_ADDITIONNAL_PARAMS"
-	$EXEC_STRING
+	local EXEC_STRING="kvm -net nic,model=$KVM_NETWORK_MODEL,macaddr=$KVM_MACADDRESS -net tap -hda $KVM_HDA -boot c -k $KVM_KEYMAP $KVM_OUTPUT $KVM_ADDITIONNAL_PARAMS"
+	eval "$EXEC_STRING"
 
 	return 0
 }
@@ -328,7 +328,7 @@ function kvm_start_screen ()
 	VM_NAME="$1"
 	SCREEN_SESSION_NAME="kvm-$VM_NAME"
 	screen -d -m -S "$SCREEN_SESSION_NAME" /bin/sh -c "\"$SCRIPT_PATH\" start \"$VM_NAME\""
-	EXITNUM="$?"
+	local EXITNUM="$?"
 	return $EXITNUM
 }
 
@@ -349,7 +349,7 @@ function kvm_monitor ()
 	MONITOR_FILE="$MONITOR_DIR/$VM_NAME.unix"
 	! test_socket_rw "$MONITOR_FILE" && fail_exit "Error : could not open monitor socket $MONITOR_FILE."
 	echo "Attaching monitor unix socket (using socat). Press ^D (EOF) to exit"
-	socat - unix:"$MONITOR_FILE"
+	socat READLINE unix:"$MONITOR_FILE"
 	echo "Monitor exited"
 }
 
@@ -389,10 +389,11 @@ function kvm_edit_descriptor ()
 
 function kvm_create_descriptor ()
 {
+	local DISK_CREATED=0
 	if [[ $# -ge 2 ]]
 	then
 		[[ ! -x "$KVM_IMG_BIN" ]] && fail_exit "kvm-img not found or not executable"
-		KVM_IMG_DISKNAME="`canonpath \"$2\"`"
+		local KVM_IMG_DISKNAME="`canonpath \"$2\"`"
 	fi
 	if [[ $# -eq 2 ]]
 	then
@@ -401,7 +402,7 @@ function kvm_create_descriptor ()
 	if [[ $# -eq 3 ]]
 	then
 		echo "Calling kvm-img to create disk image"
-		KVM_IMG_DISKSIZE="$3"
+		local KVM_IMG_DISKSIZE="$3"
 		"$KVM_IMG_BIN" create -f "$KVM_IMG_FORMAT" "$KVM_IMG_DISKNAME" "$KVM_IMG_DISKSIZE"
 		if [[ "xx$?" == "xx0" ]] 
 		then
@@ -420,7 +421,7 @@ function kvm_create_descriptor ()
 	echo "# Created : `date` on $HOSTNAME by $USER" >> "$VM_DESCRIPTOR"
 	echo "" 										>> "$VM_DESCRIPTOR"
 
-	foo=`grep -n '#xxDEFAULTxx#' "$CONFFILE"`
+	local foo=`grep -n '#xxDEFAULTxx#' "$CONFFILE"`
 	foo=${foo%:*}
 	
 	cat "$CONFFILE" | while read LINE
@@ -431,10 +432,10 @@ function kvm_create_descriptor ()
 
 	if [[ "xx$DISK_CREATED" == "xx1" ]]
 	then
-		HDA_LINE="KVM_HDA=\"$KVM_IMG_DISKNAME\""
+		local HDA_LINE="KVM_HDA=\"$KVM_IMG_DISKNAME\""
 		sed -i "s,##KVM_HDA,$HDA_LINE,g" "$VM_DESCRIPTOR"
 	fi
-	MAC_ADDR="`random_mac`"
+	local MAC_ADDR="`random_mac`"
 	sed -i 's/`random_mac`/'"$MAC_ADDR/g" "$VM_DESCRIPTOR"
 	sed -i 's/#KVM_MAC/KVM_MAC/g' "$VM_DESCRIPTOR"
 
@@ -470,7 +471,7 @@ function kvm_remove ()
 	VM_DESCRIPTOR="$VM_DIR/$VM_NAME-vm"
 	test_file_rw "$VM_DESCRIPTOR" || fail_exit "Couldn't read/write VM $VM_NAME descriptor :\n$VM_DESCRIPTOR"
 	source "$VM_DESCRIPTOR"
-	DRIVES_LIST=""
+	local DRIVES_LIST=""
 	[[ -n "$KVM_HDA" ]] && DRIVES_LIST="$DRIVES_LIST$KVM_HDA\n"
 	[[ -n "$KVM_HDB" ]] && DRIVES_LIST="$DRIVES_LIST$KVM_HDB\n"
 	[[ -n "$KVM_HDC" ]] && DRIVES_LIST="$DRIVES_LIST$KVM_HDC\n"
@@ -593,3 +594,4 @@ then
 else
 	print_help
 fi
+

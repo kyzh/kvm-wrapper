@@ -14,7 +14,7 @@ BOOTSTRAP_EXTRA_PKGSS="vim-nox,htop,screen,less,bzip2,bash-completion,locate,acp
 function bootstrap_fs()
 {
 	MNTDIR="`mktemp -d`"
-	DISKDEV=$1
+	local DISKDEV=$1
 
 	mkfs.ext3 "$DISKDEV"
 	
@@ -25,7 +25,7 @@ function bootstrap_fs()
 	debootstrap --foreign --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_REPOSITORY"
 	
 	# init script to be run on first VM boot
-	BS_FILE="$MNTDIR/bootstrap-init.sh"
+	local BS_FILE="$MNTDIR/bootstrap-init.sh"
 	cat > "$BS_FILE" << EOF
 #!/bin/sh
 mount -no remount,rw /
@@ -79,7 +79,7 @@ sysfs		/sys	sysfs	defaults			0	0
 EOF
 
 	# interfaces
-	IF_FILE="$MNTDIR/etc/network/interfaces"
+	local IF_FILE="$MNTDIR/etc/network/interfaces"
 	cat > "$IF_FILE" << EOF
 auto lo
 iface lo inet loopback
@@ -104,12 +104,10 @@ EOF
 iface eth0 inet dhcp
 EOF
 	fi
-	unset IF_FILE
 	
 	sync
 	umount "$MNTDIR"
 	rmdir "$MNTDIR"
-	unset MNTDIR DISKDEV
 
 	desc_update_setting "KVM_APPEND" "root=/dev/hda ro"
 }
