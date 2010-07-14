@@ -294,10 +294,10 @@ function kvm_start_vm ()
 	[[ -n "$KVM_INITRD" ]] && LINUXBOOT="$LINUXBOOT -initrd $KVM_INITRD"
 	[[ -n "$KVM_APPEND" ]] && LINUXBOOT="$LINUXBOOT -append \"$KVM_APPEND\""
 
-	# Are we bridged or nated ? (default nated)
-	KVM_NET_TAP="tap"
+	# Network scripts
+	[[ -z "$KVM_BRIDGE" ]] && KVM_BRIDGE="kvmnat"
+	export KVM_BRIDGE
 	KVM_NET_SCRIPT="$ROOTDIR/net/kvm"
-	[[ "$KVM_BRIDGE" == "br0" ]] && KVM_NET_SCRIPT="$ROOTDIR/net/kvm-br0"
 	KVM_NET_TAP="tap,script=$KVM_NET_SCRIPT-ifup,downscript=$KVM_NET_SCRIPT-ifdown"
 
 	# Monitor/serial devices

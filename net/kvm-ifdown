@@ -1,12 +1,10 @@
 #!/bin/sh
-
-. /usr/share/kvm-wrapper/net/kvm-net.conf
+#
+# Script called by kvm on tap interface creation
+#
 
 echo "$0:"
-
-echo "Removing $1 from bridge $BRIDGE"
-ip link set $1 down
-brctl delif "$BRIDGE" $1
-
-exit 0
+echo "Removing $1 from bridge $KVM_BRIDGE"
+ip link set "$1" down
+brctl delif "$KVM_BRIDGE" "$1"
 

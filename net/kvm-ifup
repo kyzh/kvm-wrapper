@@ -1,18 +1,10 @@
 #!/bin/sh
-
-# Debian default
-#switch=$(ip route ls | awk '/^default / { for(i=0;i<NF;i++) { if ($(i) == "dev") print $(i+1) }}')
-#/sbin/ifconfig $1 0.0.0.0 up
-#/usr/sbin/brctl addif ${switch} $1
-#exit 0
-
-
-# Configuration with NAT support
-
-. /usr/share/kvm-wrapper/net/kvm-net.conf
+#
+# Script called by kvm on tap interface creation
+#
 
 echo "$0:"
-echo "Adding $1 to bridge interface $BRIDGE"
-brctl addif "$BRIDGE" "$1"
+echo "Adding $1 to bridge interface $KVM_BRIDGE"
+brctl addif "$KVM_BRIDGE" "$1"
 ip link set "$1" up
 
