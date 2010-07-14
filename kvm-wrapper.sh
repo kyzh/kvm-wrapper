@@ -347,11 +347,12 @@ function kvm_stop_vm ()
 	echo -n "Waiting ..."
 
 	# Now wait for it
-	local ELAPSED=$(wait_test_timelimit $TIMELIMIT "! test_file $PID_FILE")
-	local PROPER=!$?
+	local ELAPSED=0
+	ELAPSED=$(wait_test_timelimit $TIMELIMIT "! test_file $PID_FILE")
+	local PROPER=$?
 	echo " elapsed time : $ELAPSED sec"
 
-	if [[ $PROPER -eq 1 ]];
+	if [[ $PROPER -eq 0 ]];
 	then
 		echo "VM powerdown properly :)"
 	else
