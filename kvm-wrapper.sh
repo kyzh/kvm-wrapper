@@ -33,7 +33,7 @@ function fail_exit ()
 	exit 1
 }
 
-# File/socket/directory tester
+# FS node testers
 function test_dir ()
 {
 	local DIR="$1"
@@ -68,6 +68,29 @@ function test_socket_rw ()
 {
 	local FILE="$1"
 	[[ -S "$FILE" && -r "$FILE" && -w "$FILE" ]]
+}
+
+function test_blockdev ()
+{
+	local FILE="$1"
+	[[ -b "$FILE" && -r "$FILE" ]]
+}
+
+function test_blockdev_rw ()
+{
+	local FILE="$1"
+	[[ -b "$FILE" && -r "$FILE" && -w "$FILE" ]]
+}
+
+function test_exec ()
+{
+	local FILE="$1"
+	[[ -x "$FILE" && -r "$FILE" ]]
+}
+
+function require_exec ()
+{
+	test_exec "$(which $1)" || fail_exit "$1 not found or not executable"
 }
 
 function check_create_dir ()
@@ -116,6 +139,55 @@ function bs_copy_from_host()
 	cp -rf "$FILE" "$MNTDIR/$FILE"
 }
 
+# NBD helpers
+function nbd_img_link ()
+{
+	KVM_IMAGE="$1"
+	echo "$NBD_IMG_LINK_DIR/$(basename $KVM_IMAGE)-$(echo $(canonpath "$KVM_IMAGE") | md5sum | awk '{print $1}')"
+}
+
+function kvm_nbd_connect ()
+{
+	require_exec "$KVM_NBD_BIN"
+	check_create_dir $NBD_IMG_LINK_DIR
+	local KVM_IMAGE="$1"
+
+	local KVM_IMAGE_NBD_LINK=$(nbd_img_link "$KVM_IMAGE")
+	[[ -h "$KVM_IMAGE_NBD_LINK" ]] && fail_exit "Image disk $KVM_IMAGE seems to be connected already."
+
+	local i=0
+	local SUCCESS=0
+	for ((i=0; i <= 15; i++))
+	do
+		local NBD_BLOCKDEV="/dev/nbd$i"
+		local NBD_SOCKET_LOCK="/var/lock/qemu-nbd-nbd$i"
+
+		test_blockdev_rw "$NBD_BLOCKDEV" || continue
+		test_socket "$NBD_SOCKET_LOCK" && continue
+
+		$KVM_NBD_BIN -c "$NBD_BLOCKDEV" "$KVM_IMAGE"
+		ln -s "$NBD_BLOCKDEV" "$KVM_IMAGE_NBD_LINK"
+
+		echo "Connected: $KVM_IMAGE to $NBD_BLOCKDEV."
+		SUCCESS=1
+		break
+	done
+	[[ $SUCCESS -eq 1 ]] || fail_exit "Couldn't connect image disk for some reason."
+}
+
+function kvm_nbd_disconnect ()
+{
+	require_exec "$KVM_NBD_BIN"
+	check_create_dir $NBD_IMG_LINK_DIR
+	local KVM_IMAGE="$1"
+
+	local KVM_IMAGE_NBD_LINK=$(nbd_img_link "$KVM_IMAGE")
+	[[ -h "$KVM_IMAGE_NBD_LINK" ]] || fail_exit "Image disk $KVM_IMAGE does not seem to be connected."
+	$KVM_NBD_BIN -d "$KVM_IMAGE_NBD_LINK"
+	rm -f "$KVM_IMAGE_NBD_LINK"
+}
+
+# VM descriptor helpers
 # Update (if exists) descriptor setting and keep a backup, create otherwise
 function desc_update_backup_setting ()
 {
@@ -207,6 +279,7 @@ function kvm_start_vm ()
 	source "$VM_DESCRIPTOR"
 
 	[[ -z "$KVM_BIN" ]] && KVM_BIN="/usr/bin/kvm"
+	require_exec "$KVM_BIN"
 
 	# Build KVM Drives (hdd, cdrom) parameters
 	local KVM_DRIVES=""
@@ -313,11 +386,12 @@ function kvm_stop_vm ()
 
 function kvm_run_disk ()
 {
+	require_exec "$KVM_BIN"
 	KVM_HDA="$1"
 	test_file_rw "$KVM_HDA" || "Couldn't read/write image file :\n$KVM_HDA"
 
 	# Build kvm exec string
-	local EXEC_STRING="kvm -net nic,model=$KVM_NETWORK_MODEL,macaddr=$KVM_MACADDRESS -net tap -hda $KVM_HDA -boot c -k $KVM_KEYMAP $KVM_OUTPUT $KVM_ADDITIONNAL_PARAMS"
+	local EXEC_STRING="$KVM_BIN -net nic,model=$KVM_NETWORK_MODEL,macaddr=$KVM_MACADDRESS -net tap -hda $KVM_HDA -boot c -k $KVM_KEYMAP $KVM_OUTPUT $KVM_ADDITIONNAL_PARAMS"
 	eval "$EXEC_STRING"
 
 	return 0
@@ -357,7 +431,7 @@ function kvm_serial ()
 {
 	VM_NAME="$1"
 	PID_FILE="$PID_DIR/$VM_NAME-vm.pid"
-	! [[ -f "$PID_FILE" ]] && fail_exit "Error : $VM_NAME doesn't seem to be running."
+	! test_file "$PID_FILE" && fail_exit "Error : $VM_NAME doesn't seem to be running."
 	SERIAL_FILE="$SERIAL_DIR/$VM_NAME.unix"
 	! test_socket_rw "$SERIAL_FILE" && fail_exit "Error : could not open serial socket $SERIAL_FILE."
 	echo "Attaching serial console unix socket (using socat). Press ^] to exit"
@@ -373,7 +447,7 @@ function kvm_list ()
 	for file in "$VM_DIR"/*-vm
 	do
 		VM_NAME=`basename "${file%"-vm"}"`
-		VM_STATUS="Halted"
+		local VM_STATUS="Halted"
 		PID_FILE="$PID_DIR/$VM_NAME-vm.pid"
 		test_file "$PID_FILE" && VM_STATUS="Running"
 		echo -e "$VM_STATUS\t\t$VM_NAME"
@@ -392,7 +466,7 @@ function kvm_create_descriptor ()
 	local DISK_CREATED=0
 	if [[ $# -ge 2 ]]
 	then
-		[[ ! -x "$KVM_IMG_BIN" ]] && fail_exit "kvm-img not found or not executable"
+		require_exec "$KVM_IMG_BIN"
 		local KVM_IMG_DISKNAME="`canonpath \"$2\"`"
 	fi
 	if [[ $# -eq 2 ]]
@@ -457,12 +531,25 @@ function kvm_bootstrap_vm ()
 	test_file "$BOOTSTRAP_SCRIPT" || fail_exit "Couldn't read $BOOTSTRAP_SCRIPT to bootstrap $VM_NAME as $BOOTSTRAP_DISTRIB"
 	source "$BOOTSTRAP_SCRIPT"
 	
-	# Start bootstrap
+	#test_blockdev "$BOOTSTRAP_DEVICE" || fail_exit "Sorry, kvm-wrapper can only bootstrap blockdevices yet."
+	if ! test_blockdev "$KVM_HDA"
+	then
+		require_exec "$KVM_NBD_BIN"
+		test_file "$KVM_HDA" || fail_exit ""$KVM_HDA" appears to be neither a blockdev nor a regular file."
+		echo "Attempting to connect the disk image to an nbd device."
+		kvm_nbd_connect "$KVM_HDA"
+		local BOOTSTRAP_DEVICE=$(nbd_img_link "$KVM_HDA")
+	else
+		local BOOTSTRAP_DEVICE="$KVM_HDA"
+	fi
+
 	echo "Starting to bootstrap $VM_NAME as $BOOTSTRAP_DISTRIB on disk $KVM_HDA"
-	bootstrap_fs "$KVM_HDA"
+	bootstrap_fs "$BOOTSTRAP_DEVICE"
+	sync
+	test_blockdev "$KVM_HDA" || kvm_nbd_disconnect "$KVM_HDA"
+
 	echo "Bootstrap ended."
 	return 0
-
 }
 
 function kvm_remove ()
@@ -477,7 +564,7 @@ function kvm_remove ()
 	[[ -n "$KVM_HDC" ]] && DRIVES_LIST="$DRIVES_LIST$KVM_HDC\n"
 	[[ -n "$KVM_HDD" ]] && DRIVES_LIST="$DRIVES_LIST$KVM_HDD\n"
 	if [[ -n "$DRIVES_LIST" ]]; then
-		echo "The VM $VM_NAME used the following disks (NOT removed by $SCRIPT_NAME :"
+		echo "The VM $VM_NAME used the following disks (NOT removed by $SCRIPT_NAME) :"
 		echo -e "$DRIVES_LIST"
 	fi
 	rm -f "$VM_DESCRIPTOR"
