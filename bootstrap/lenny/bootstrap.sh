@@ -52,6 +52,7 @@ function bs_copy_conf_dir()
 
 function bootstrap_fs()
 {
+	set +e
 	trap cleanup EXIT
 
 	MNTDIR="`mktemp -d`"
@@ -61,7 +62,7 @@ function bootstrap_fs()
 
 	local rootdev="/dev/hda"
 
-	if [[ BOOTSTRAP_PARTITION_TYPE -eq "msdos" ]]; then
+	if [[ $BOOTSTRAP_PARTITION_TYPE == "msdos" ]]; then
 		sfdisk -H 255 -S 63 -uS --quiet --Linux "$DISKDEV" <<EOF
 63,,L,*
 EOF
@@ -158,6 +159,7 @@ EOF
 
 	cleanup
 	trap - EXIT
+	set -e
 
 	desc_update_setting "KVM_APPEND" "root=$rootdev ro"
 }

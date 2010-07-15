@@ -521,9 +521,9 @@ function kvm_bootstrap_vm ()
 	PID_FILE="$PID_DIR/$VM_NAME-vm.pid"
 	test_file "$PID_FILE" && fail_exit "Error : $VM_NAME seems to be running. Please stop it before trying to bootstrap it."
 
-  if [[ -n "$2" ]]; then
-	    BOOTSTRAP_DISTRIB="$2"   # The variable is already set in the config file otherwise.
-  fi
+	if [[ -n "$2" ]]; then
+		BOOTSTRAP_DISTRIB="$2"   # The variable is already set in the config file otherwise.
+	fi
 	BOOTSTRAP_SCRIPT="$BOOTSTRAP_DIR/$BOOTSTRAP_DISTRIB/bootstrap.sh"
 	test_file "$BOOTSTRAP_SCRIPT" || fail_exit "Couldn't read $BOOTSTRAP_SCRIPT to bootstrap $VM_NAME as $BOOTSTRAP_DISTRIB"
 	source "$BOOTSTRAP_SCRIPT"
@@ -656,7 +656,7 @@ case "$1" in
 		else print_help; fi
 		;;
 	bootstrap)
-		if [[ $# -gt 2 ]]; then
+		if [[ $# -ge 2 ]]; then
 		    kvm_bootstrap_vm "$2" "$3"
 		else print_help; fi
 		;;
