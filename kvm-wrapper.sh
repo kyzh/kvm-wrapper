@@ -133,12 +133,6 @@ local MACADDRESS="52:54:00:ff""$STR"
 echo -ne $MACADDRESS
 }
 
-function bs_copy_from_host()
-{
-	local FILE="$1"
-	cp -rf "$FILE" "$MNTDIR/$FILE"
-}
-
 # NBD helpers
 function nbd_img_link ()
 {
@@ -465,16 +459,16 @@ function kvm_edit_descriptor ()
 function kvm_create_descriptor ()
 {
 	local DISK_CREATED=0
-	if [[ $# -ge 2 ]]
+	if [[ -n $2 ]]
 	then
 		require_exec "$KVM_IMG_BIN"
 		local KVM_IMG_DISKNAME="`canonpath \"$2\"`"
 	fi
-	if [[ $# -eq 2 ]]
+	if [[ -z $3 ]]
 	then
 		DISK_CREATED=1
 	fi
-	if [[ $# -eq 3 ]]
+	if [[ -n $3 ]]
 	then
 		echo "Calling kvm-img to create disk image"
 		local KVM_IMG_DISKSIZE="$3"
@@ -527,7 +521,9 @@ function kvm_bootstrap_vm ()
 	PID_FILE="$PID_DIR/$VM_NAME-vm.pid"
 	test_file "$PID_FILE" && fail_exit "Error : $VM_NAME seems to be running. Please stop it before trying to bootstrap it."
 
-	BOOTSTRAP_DISTRIB="$2"
+  if [[ -n "$2" ]]; then
+	    BOOTSTRAP_DISTRIB="$2"   # The variable is already set in the config file otherwise.
+  fi
 	BOOTSTRAP_SCRIPT="$BOOTSTRAP_DIR/$BOOTSTRAP_DISTRIB/bootstrap.sh"
 	test_file "$BOOTSTRAP_SCRIPT" || fail_exit "Couldn't read $BOOTSTRAP_SCRIPT to bootstrap $VM_NAME as $BOOTSTRAP_DISTRIB"
 	source "$BOOTSTRAP_SCRIPT"
@@ -601,85 +597,72 @@ source "$CONFFILE"
 # Check VM descriptor directory
 test_dir "$VM_DIR" || fail_exit "Couldn't open VM descriptor directory :\n$VM_DIR"
 
-# Check arguments number
-if [[ $# -eq 1 ]]
-then
-	case "$1" in
-		status)
-		  kvm_status "all"
-		  ;;
-		list)
-		  kvm_list
-		  ;;
-		*)
-		  print_help
-		  ;;
-	esac
-elif [[ $# -eq 2 ]]
-then
-	case "$1" in
-		start)
-		  kvm_start_vm "$2"
-		  ;;
-		screen)
-		  kvm_start_screen "$2"
-		  ;;
-		attach)
-		  kvm_attach_screen "$2"
-		  ;;
-		monitor)
-		  kvm_monitor "$2"
-		  ;;
-		serial)
-		  kvm_serial "$2"
-		  ;;
-		stop)
-		  kvm_stop_vm "$2"
-		  ;;
-		rundisk)
-		  kvm_run_disk "$2"
-		  ;;
-		status)
-		  kvm_status "$2"
-		  ;;
-		edit)
-		  kvm_edit_descriptor "$2"
-		  ;;
-		create)
-		  kvm_create_descriptor "$2"
-		  ;;
-		remove)
-		  kvm_remove "$2"
-		  ;;
-		*)
-		  print_help
-		  ;;
-	esac
-elif [[ $# -eq 3 ]]
-then
-	case "$1" in
-		create)
-		  kvm_create_descriptor "$2" "$3"
-		  ;;
-		bootstrap)
-		  kvm_bootstrap_vm "$2" "$3"
-		  ;;
-		*)
-		  print_help
-		  ;;
-	esac
+# Argument parsing
+case "$1" in
+	list)
+		kvm_list
+		;;
+	start)
+		if [[ $# -eq 2 ]]; then
+		    kvm_start_vm "$2"
+		else print_help; fi
+		;;
+	screen)
+		if [[ $# -eq 2 ]]; then
+		    kvm_start_screen "$2"
+		else print_help; fi
+		;;
+	attach)
+		if [[ $# -eq 2 ]]; then
+		    kvm_attach_screen "$2"
+		else print_help; fi
+		;;
+	monitor)
+		if [[ $# -eq 2 ]]; then
+		    kvm_monitor "$2"
+		else print_help; fi
+		;;
+	serial)
+		if [[ $# -eq 2 ]]; then
+		    kvm_serial "$2"
+		else print_help; fi
+		;;
+	stop)
+		if [[ $# -eq 2 ]]; then
+		    kvm_stop_vm "$2"
+		else print_help; fi
+		;;
+	rundisk)
+		if [[ $# -eq 2 ]]; then
+		    kvm_run_disk "$2"
+		else print_help; fi
+		;;
+	status)
+        if [[ -n "$2" ]]; then 
+            kvm_status "$2"
+        else kvm_status "all"; fi
+		;;
+	edit)
+		if [[ $# -eq 2 ]]; then
+		    kvm_edit_descriptor "$2"
+		else print_help; fi
+		;;
+	create)
+		kvm_create_descriptor "$2" "$3" "$4"
+		;;
+	remove)
+		if [[ $# -eq 2 ]]; then
+		    kvm_remove "$2"
+		else print_help; fi
+		;;
+	bootstrap)
+		if [[ $# -gt 2 ]]; then
+		    kvm_bootstrap_vm "$2" "$3"
+		else print_help; fi
+		;;
+	*)
+		print_help
+		;;
+esac
 
-elif [[ $# -eq 4 ]]
-then
-	case "$1" in
-		create)
-		  kvm_create_descriptor "$2" "$3" "$4"
-		  ;;
-		*)
-		  print_help
-		  ;;
-	esac
-else
-	print_help
-fi
 

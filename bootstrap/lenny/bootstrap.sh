@@ -2,24 +2,73 @@
 # Bootstrap VM
 #
 # -- bencoh, 2010/07/11
-#
+# -- asmadeus, 2010/07
 
 ### Configuration
 BOOTSTRAP_REPOSITORY="http://ftp.fr.debian.org/debian/"
 BOOTSTRAP_FLAVOR="lenny"
 BOOTSTRAP_LINUX_IMAGE="linux-image-2.6-686"
 BOOTSTRAP_EXTRA_PKGSS="vim-nox,htop,screen,less,bzip2,bash-completion,locate,acpid,$BOOTSTRAP_LINUX_IMAGE"
+BOOTSTRAP_PARTITION_TYPE="msdos" #this or anything else ?
+BOOTSTRAP_CONF_DIR="$BOOTSTRAP_DIR/$BOOTSTRAP_DISTRIB/conf"
 ### 
+
+cleanup()
+{
+	if [ ${#CLEANUP[*]} -gt 0 ]; then
+		LAST_ELEMENT=$((${#CLEANUP[*]}-1))
+		for i in `seq $LAST_ELEMENT -1 0`; do
+			${CLEANUP[$i]}
+		done
+	fi
+}
+
+CLEANUP=( )
+
+trap cleanup EXIT
+
+function map_disk()
+{
+	local DISKDEV=$1
+	kpartx -a -p- $DISKDEV > /dev/null
+	echo /dev/mapper/`kpartx -l -p- $DISKDEV | grep -m 1 -- "-1.*$DISKDEV" | awk '{print $1}'`
+}
+
+function unmap_disk()
+{
+	local DISKDEV=$1
+	kpartx -d -p- $DISKDEV
+}
+
+function bs_copy_from_host()
+{
+	local FILE="$1"
+	cp -rf "$FILE" "$MNTDIR/$FILE"
+}
+
+function bs_copy_conf_dir()
+{
+   cp -rf "$BOOTSTRAP_CONF_DIR/*" "$MNTDIR"
+}
 
 function bootstrap_fs()
 {
 	MNTDIR="`mktemp -d`"
 	local DISKDEV=$1
+	local PARTDEV=$1
 
-	mkfs.ext3 "$DISKDEV"
+	if [[ BOOTSTRAP_PARTITION_TYPE -eq "msdos" ]]; then
+		sfdisk -H 255 -S 63 -uS --quiet --Linux "$DISKDEV" <<EOF
+63,,L,*
+EOF
+		PARTDEV=`map_disk $DISKDEV`
+		CLEANUP+=("unmap_disk $DISKDEV")
+	fi
+
+	mkfs.ext3 "$PARTDEV"
 	
 	#mkdir "$MNTDIR"
-	mount "$DISKDEV" "$MNTDIR"
+	mount "$PARTDEV" "$MNTDIR"
 	
 	# Now debootstrap, first stage (do not configure)
 	debootstrap --foreign --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_REPOSITORY"
@@ -58,17 +107,18 @@ EOF
 	kvm_start_vm "$VM_NAME"
 	
 	#mkdir "$MNTDIR"
-	mount "$DISKDEV" "$MNTDIR"
+	mount "$PARTDEV" "$MNTDIR"
 	
 	# Copy some files/configuration from host
 	bs_copy_from_host /etc/hosts
 	bs_copy_from_host /etc/resolv.conf
-	bs_copy_from_host /etc/bash.bashrc
-	bs_copy_from_host /etc/profile
-	bs_copy_from_host /root/.bashrc
-	bs_copy_from_host /etc/vim/vimrc
-	bs_copy_from_host /etc/screenrc
-	bs_copy_from_host /etc/apt/sources.list
+	bs_copy_conf_dir
+#	bs_copy_from_host /etc/bash.bashrc
+#	bs_copy_from_host /etc/profile
+#	bs_copy_from_host /root/.bashrc
+#	bs_copy_from_host /etc/vim/vimrc
+#	bs_copy_from_host /etc/screenrc
+#	bs_copy_from_host /etc/apt/sources.list
 	echo "$VM_NAME" > "$MNTDIR/etc/hostname"
 	
 	# fstab
@@ -94,7 +144,7 @@ iface eth0 inet static
 	network XXXNETWORKXXX
 	gateway XXXGATEWAYXXX
 EOF
-	
+		
 		sed -i "s/XXXADDRXXX/$BOOTSTRAP_NET_ADDR/g" "$IF_FILE"
 		sed -i "s/XXXNETMASKXXX/$BOOTSTRAP_NET_MASK/g" "$IF_FILE"
 		sed -i "s/XXXGATEWAYXXX/$BOOTSTRAP_NET_GW/g" "$IF_FILE"
