@@ -25,7 +25,6 @@ cleanup()
 
 CLEANUP=( )
 
-trap cleanup EXIT
 
 function map_disk()
 {
@@ -48,28 +47,36 @@ function bs_copy_from_host()
 
 function bs_copy_conf_dir()
 {
-   cp -rf "$BOOTSTRAP_CONF_DIR/*" "$MNTDIR"
+   cp -rf "$BOOTSTRAP_CONF_DIR/"* "$MNTDIR/"
 }
 
 function bootstrap_fs()
 {
+	trap cleanup EXIT
+
 	MNTDIR="`mktemp -d`"
+	CLEANUP+=("rmdir $MNTDIR")
 	local DISKDEV=$1
 	local PARTDEV=$1
+
+	local rootdev="/dev/hda"
 
 	if [[ BOOTSTRAP_PARTITION_TYPE -eq "msdos" ]]; then
 		sfdisk -H 255 -S 63 -uS --quiet --Linux "$DISKDEV" <<EOF
 63,,L,*
 EOF
 		PARTDEV=`map_disk $DISKDEV`
+		rootdev="/dev/hda1"
 		CLEANUP+=("unmap_disk $DISKDEV")
 	fi
 
 	mkfs.ext3 "$PARTDEV"
 	
-	#mkdir "$MNTDIR"
 	mount "$PARTDEV" "$MNTDIR"
 	
+	CLEANUP+=("umount $MNTDIR")	
+	CLEANUP+=("sync")
+
 	# Now debootstrap, first stage (do not configure)
 	debootstrap --foreign --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_REPOSITORY"
 	
@@ -99,12 +106,11 @@ EOF
 	desc_update_setting "KVM_NETWORK_MODEL" "virtio"
 	desc_update_setting "KVM_KERNEL" "/home/bencoh/kvm-hdd/boot/vmlinuz-2.6.26-2-686"
 	desc_update_setting "KVM_INITRD" "/home/bencoh/kvm-hdd/boot/initrd.img-2.6.26-2-686"
-	desc_update_setting "KVM_APPEND" "root=/dev/hda ro init=/bootstrap-init.sh"
+	desc_update_setting "KVM_APPEND" "root=$rootdev ro init=/bootstrap-init.sh"
 	kvm_start_vm "$VM_NAME"
 	
 	mount "$PARTDEV" "$MNTDIR"
 	
-	CLEANUP+=("umount $MNTDIR; rmdir $MNTDIR")	
 
 	# Copy some files/configuration from host
 	bs_copy_from_host /etc/hosts
@@ -119,11 +125,6 @@ EOF
 	echo "$VM_NAME" > "$MNTDIR/etc/hostname"
 	
 	# fstab
-	LOCAL rootdev="/dev/hda"
-	if [[ BOOTSTRAP_PARTITION_TYPE -eq "msdos" ]]; then
-		rootdev="/dev/hda1"
-	fi
-
 	cat > "$MNTDIR/etc/fstab" << EOF
 $rootdev	/		ext3	errors=remount-ro	0	1
 proc		/proc	proc	defaults			0	0
@@ -142,7 +143,7 @@ EOF
 	if [[ -n "$BOOTSTRAP_NET_ADDR" ]]; then
 		cat >> "$IF_FILE" << EOF	
 iface eth0 inet static
-	address $BOOTSRAP_NET_ADDR
+	address $BOOTSTRAP_NET_ADDR
 	netmask $BOOTSTRAP_NET_MASK
 	network $BOOTSTRAP_NET_NW
 	gateway $BOOTSTRAP_NET_GW
@@ -158,6 +159,6 @@ EOF
 	cleanup
 	trap - EXIT
 
-	desc_update_setting "KVM_APPEND" "root=/dev/hda ro"
+	desc_update_setting "KVM_APPEND" "root=$rootdev ro"
 }
 
