@@ -62,7 +62,7 @@ function bootstrap_fs()
 
 	local rootdev="/dev/hda"
 
-	if [[ $BOOTSTRAP_PARTITION_TYPE == "msdos" ]]; then
+	if [[ "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then
 		sfdisk -H 255 -S 63 -uS --quiet --Linux "$DISKDEV" <<EOF
 63,,L,*
 EOF
