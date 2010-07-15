@@ -7,24 +7,11 @@
 ### Configuration
 BOOTSTRAP_REPOSITORY="http://ftp.fr.debian.org/debian/"
 BOOTSTRAP_FLAVOR="lenny"
-BOOTSTRAP_LINUX_IMAGE="linux-image-2.6-686"
+BOOTSTRAP_LINUX_IMAGE="linux-image-`uname -r`"
 BOOTSTRAP_EXTRA_PKGSS="vim-nox,htop,screen,less,bzip2,bash-completion,locate,acpid,$BOOTSTRAP_LINUX_IMAGE"
-BOOTSTRAP_PARTITION_TYPE="msdos" #this or anything else ?
+BOOTSTRAP_PARTITION_TYPE="msdos"
 BOOTSTRAP_CONF_DIR="$BOOTSTRAP_DIR/$BOOTSTRAP_DISTRIB/conf"
 ### 
-
-cleanup()
-{
-	if [ ${#CLEANUP[*]} -gt 0 ]; then
-		LAST_ELEMENT=$((${#CLEANUP[*]}-1))
-		for i in `seq $LAST_ELEMENT -1 0`; do
-			${CLEANUP[$i]}
-		done
-	fi
-}
-
-CLEANUP=( )
-
 
 function map_disk()
 {
@@ -52,9 +39,6 @@ function bs_copy_conf_dir()
 
 function bootstrap_fs()
 {
-	set +e
-	trap cleanup EXIT
-
 	MNTDIR="`mktemp -d`"
 	CLEANUP+=("rmdir $MNTDIR")
 	local DISKDEV=$1
@@ -105,8 +89,8 @@ EOF
 
 	# Start VM to debootstrap, second stage
 	desc_update_setting "KVM_NETWORK_MODEL" "virtio"
-	desc_update_setting "KVM_KERNEL" "/home/bencoh/kvm-hdd/boot/vmlinuz-2.6.26-2-686"
-	desc_update_setting "KVM_INITRD" "/home/bencoh/kvm-hdd/boot/initrd.img-2.6.26-2-686"
+	desc_update_setting "KVM_KERNEL" "/boot/vmlinuz-SV"
+	desc_update_setting "KVM_INITRD" "/boot/initrd.img-SV"
 	desc_update_setting "KVM_APPEND" "root=$rootdev ro init=/bootstrap-init.sh"
 	kvm_start_vm "$VM_NAME"
 	
@@ -156,10 +140,6 @@ EOF
 	fi
 	
 	sync
-
-	cleanup
-	trap - EXIT
-	set -e
 
 	desc_update_setting "KVM_APPEND" "root=$rootdev ro"
 }

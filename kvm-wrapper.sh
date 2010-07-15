@@ -181,6 +181,20 @@ function kvm_nbd_disconnect ()
 	rm -f "$KVM_IMAGE_NBD_LINK"
 }
 
+# LVM helpers
+function lvm_create_disk ()
+{
+	require_exec "$LVM_LVCREATE_BIN"
+
+	VM_NAME="$1"
+	VM_DESCRIPTOR="$VM_DIR/$VM_NAME-vm"
+	test_file "$VM_DESCRIPTOR" || fail_exit "Couldn't open VM $VM_NAME descriptor :\n$VM_DESCRIPTOR"
+	source "$VM_DESCRIPTOR"
+
+	eval $LVM_LVCREATE_BIN --name ${LV_NAME:-$VM_NAME} --size $LV_SIZE $VG_NAME
+}
+
+
 # VM descriptor helpers
 # Update (if exists) descriptor setting and keep a backup, create otherwise
 function desc_update_backup_setting ()
@@ -289,7 +303,7 @@ function kvm_start_vm ()
 	[[ -n "$KVM_APPEND" ]] && LINUXBOOT="$LINUXBOOT -append \"$KVM_APPEND\""
 
 	# Network scripts
-	[[ -z "$KVM_BRIDGE" ]] && KVM_BRIDGE="kvmnat"
+	[[ -z "$KVM_BRIDGE" ]] && KVM_BRIDGE="kvmnat"
 	export KVM_BRIDGE
 	KVM_NET_SCRIPT="$ROOTDIR/net/kvm"
 	KVM_NET_TAP="tap,script=$KVM_NET_SCRIPT-ifup,downscript=$KVM_NET_SCRIPT-ifdown"
@@ -513,6 +527,24 @@ function kvm_create_descriptor ()
 
 function kvm_bootstrap_vm ()
 {
+
+	cleanup()
+	{
+		if [ ${#CLEANUP[*]} -gt 0 ]; then
+			LAST_ELEMENT=$((${#CLEANUP[*]}-1))
+			for i in `seq $LAST_ELEMENT -1 0`; do
+				eval ${CLEANUP[$i]}
+			done
+		fi
+	}
+
+	local CLEANUP=( )
+
+
+	set +e
+	trap cleanup EXIT
+
+
 	VM_NAME="$1"
 	VM_DESCRIPTOR="$VM_DIR/$VM_NAME-vm"
 	test_file_rw "$VM_DESCRIPTOR" || fail_exit "Couldn't read/write VM $VM_NAME descriptor :\n$VM_DESCRIPTOR"
@@ -544,6 +576,10 @@ function kvm_bootstrap_vm ()
 	bootstrap_fs "$BOOTSTRAP_DEVICE"
 	sync
 	test_blockdev "$KVM_HDA" || kvm_nbd_disconnect "$KVM_HDA"
+
+	cleanup
+	trap - EXIT
+	set -e
 
 	echo "Bootstrap ended."
 	return 0
@@ -659,6 +695,9 @@ case "$1" in
 		if [[ $# -ge 2 ]]; then
 		    kvm_bootstrap_vm "$2" "$3"
 		else print_help; fi
+		;;
+	create-disk)
+		lvm_create_disk "$2"
 		;;
 	*)
 		print_help
