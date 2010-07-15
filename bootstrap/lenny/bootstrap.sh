@@ -94,11 +94,7 @@ EOF
 	# umount
 	sync
 	umount "$MNTDIR"
-	#rmdir "$MNTDIR"
-	
-	# DEBUG
-	#exit
-	
+
 	# Start VM to debootstrap, second stage
 	desc_update_setting "KVM_NETWORK_MODEL" "virtio"
 	desc_update_setting "KVM_KERNEL" "/home/bencoh/kvm-hdd/boot/vmlinuz-2.6.26-2-686"
@@ -106,9 +102,10 @@ EOF
 	desc_update_setting "KVM_APPEND" "root=/dev/hda ro init=/bootstrap-init.sh"
 	kvm_start_vm "$VM_NAME"
 	
-	#mkdir "$MNTDIR"
 	mount "$PARTDEV" "$MNTDIR"
 	
+	CLEANUP+=("umount $MNTDIR; rmdir $MNTDIR")	
+
 	# Copy some files/configuration from host
 	bs_copy_from_host /etc/hosts
 	bs_copy_from_host /etc/resolv.conf
@@ -122,11 +119,17 @@ EOF
 	echo "$VM_NAME" > "$MNTDIR/etc/hostname"
 	
 	# fstab
+	LOCAL rootdev="/dev/hda"
+	if [[ BOOTSTRAP_PARTITION_TYPE -eq "msdos" ]]; then
+		rootdev="/dev/hda1"
+	fi
+
 	cat > "$MNTDIR/etc/fstab" << EOF
-/dev/hda	/		ext3	errors=remount-ro	0	1
+$rootdev	/		ext3	errors=remount-ro	0	1
 proc		/proc	proc	defaults			0	0
 sysfs		/sys	sysfs	defaults			0	0
 EOF
+
 
 	# interfaces
 	local IF_FILE="$MNTDIR/etc/network/interfaces"
@@ -139,16 +142,11 @@ EOF
 	if [[ -n "$BOOTSTRAP_NET_ADDR" ]]; then
 		cat >> "$IF_FILE" << EOF	
 iface eth0 inet static
-	address XXXADDRXXX
-	netmask XXXNETMASKXXX
-	network XXXNETWORKXXX
-	gateway XXXGATEWAYXXX
+	address $BOOTSRAP_NET_ADDR
+	netmask $BOOTSTRAP_NET_MASK
+	network $BOOTSTRAP_NET_NW
+	gateway $BOOTSTRAP_NET_GW
 EOF
-		
-		sed -i "s/XXXADDRXXX/$BOOTSTRAP_NET_ADDR/g" "$IF_FILE"
-		sed -i "s/XXXNETMASKXXX/$BOOTSTRAP_NET_MASK/g" "$IF_FILE"
-		sed -i "s/XXXGATEWAYXXX/$BOOTSTRAP_NET_GW/g" "$IF_FILE"
-		sed -i "s/XXXNETWORKXXX/$BOOTSTRAP_NET_NW/g" "$IF_FILE"
 	else
 		cat >> "$IF_FILE" << EOF
 iface eth0 inet dhcp
@@ -156,8 +154,9 @@ EOF
 	fi
 	
 	sync
-	umount "$MNTDIR"
-	rmdir "$MNTDIR"
+
+	cleanup
+	trap - EXIT
 
 	desc_update_setting "KVM_APPEND" "root=/dev/hda ro"
 }
