@@ -108,9 +108,14 @@ EOF
 #	bs_copy_from_host /etc/screenrc
 #	bs_copy_from_host /etc/apt/sources.list
 	echo "$VM_NAME" > "$MNTDIR/etc/hostname"
+
+	echo "Europe/Paris" > "$MNTDIR/etc/timezone"
+	cp /usr/share/zoneinfo/Europe/Paris "$MNTDIR/etc/localtime"
+
 	
 	# fstab
 	cat > "$MNTDIR/etc/fstab" << EOF
+# <file system>	<mount point>	<type>	<options>	<dump>	<pass>
 $rootdev	/		ext3	errors=remount-ro	0	1
 proc		/proc	proc	defaults			0	0
 sysfs		/sys	sysfs	defaults			0	0
