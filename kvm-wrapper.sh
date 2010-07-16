@@ -191,7 +191,7 @@ function lvm_create_disk ()
 	test_file "$VM_DESCRIPTOR" || fail_exit "Couldn't open VM $VM_NAME descriptor :\n$VM_DESCRIPTOR"
 	source "$VM_DESCRIPTOR"
 
-	eval $LVM_LVCREATE_BIN --name ${LV_NAME:-$VM_NAME} --size $LV_SIZE $VG_NAME
+	eval $LVM_LVCREATE_BIN --name ${LVM_LV_NAME:-"vm.$VM_NAME"} --size $LVM_LV_SIZE $LVM_VG_NAME
 }
 
 
@@ -282,6 +282,7 @@ function kvm_start_vm ()
 	check_create_dir "$PID_DIR"
 	check_create_dir "$MONITOR_DIR"
 	check_create_dir "$SERIAL_DIR"
+	check_create_dir "$BOOT_IMAGES_DIR"
 
 	test_file "$VM_DESCRIPTOR" || fail_exit "Couldn't open VM $VM_NAME descriptor :\n$VM_DESCRIPTOR"
 	source "$VM_DESCRIPTOR"
@@ -540,10 +541,10 @@ function kvm_bootstrap_vm ()
 
 	local CLEANUP=( )
 
-
 	set +e
 	trap cleanup EXIT
 
+	require_exec "kpartx"
 
 	VM_NAME="$1"
 	VM_DESCRIPTOR="$VM_DIR/$VM_NAME-vm"

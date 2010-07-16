@@ -4,17 +4,21 @@
 # -- bencoh, 2010/07/11
 # -- asmadeus, 2010/07
 
+if [[ "`uname -m`" == "x86_64" ]]; then
+	ARCH_SUFFIX="amd64"
+else
+	ARCH_SUFFIX="686"
+fi
+
 ### Configuration
+BOOTSTRAP_LINUX_IMAGE="linux-image-$ARCH_SUFFIX"
 BOOTSTRAP_REPOSITORY="http://ftp.fr.debian.org/debian/"
 BOOTSTRAP_FLAVOR="lenny"
-if [[ "`uname -m`" == "x86_64" ]]; then
-	BOOTSTRAP_LINUX_IMAGE="linux-image-amd64"
-else
-	BOOTSTRAP_LINUX_IMAGE="linux-image-686"
-fi
 BOOTSTRAP_EXTRA_PKGSS="vim-nox,htop,screen,less,bzip2,bash-completion,locate,acpid,$BOOTSTRAP_LINUX_IMAGE"
-BOOTSTRAP_PARTITION_TYPE="msdos"
+BOOTSTRAP_PARTITION_TYPE="msdos" #FIXME should be able to define it per-vm
 BOOTSTRAP_CONF_DIR="$BOOTSTRAP_DIR/$BOOTSTRAP_DISTRIB/conf"
+BOOTSTRAP_KERNEL="$BOOT_IMAGES_DIR/vmlinuz-$ARCH_SUFFIX"
+BOOTSTRAP_INITRD="$BOOT_IMAGES_DIR/initrd.img-$ARCH_SUFFIX"
 ### 
 
 function map_disk()
@@ -43,6 +47,9 @@ function bs_copy_conf_dir()
 
 function bootstrap_fs()
 {
+	test_file "$BOOTSTRAP_KERNEL" || fail_exit "Could'nt find bootstrap kernel : $BOOTSTRAP_KERNEL"
+	test_file "$BOOTSTRAP_INITRD" || fail_exit "Could'nt find bootstrap initrd : $BOOTSTRAP_KERNEL"
+
 	MNTDIR="`mktemp -d`"
 	CLEANUP+=("rmdir $MNTDIR")
 	local DISKDEV=$1
@@ -93,8 +100,8 @@ EOF
 
 	# Start VM to debootstrap, second stage
 	desc_update_setting "KVM_NETWORK_MODEL" "virtio"
-	desc_update_setting "KVM_KERNEL" "/boot/vmlinuz-SV"
-	desc_update_setting "KVM_INITRD" "/boot/initrd.img-SV"
+	desc_update_setting "KVM_KERNEL" "$BOOTSTRAP_KERNEL"
+	desc_update_setting "KVM_INITRD" "$BOOTSTRAP_INITRD"
 	desc_update_setting "KVM_APPEND" "root=$rootdev ro init=/bootstrap-init.sh"
 	kvm_start_vm "$VM_NAME"
 	
