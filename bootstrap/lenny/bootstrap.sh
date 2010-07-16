@@ -92,8 +92,9 @@ EOF
 
 	if [[ "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then
 		cat >> "$BS_FILE" << EOF
-grub-install /dev/hda
-update-grub
+/usr/sbin/grub-install /dev/hda
+/usr/sbin/update-grub
+
 EOF
 	fi
 
@@ -132,6 +133,7 @@ EOF
 	bs_copy_from_host /etc/resolv.conf
 	bs_copy_from_host /etc/timezone
 	bs_copy_from_host /etc/localtime
+	bs_copy_from_host /etc/apt/sources.list
 
 	echo "$VM_NAME" > "$MNTDIR/etc/hostname"
 	# Custom files

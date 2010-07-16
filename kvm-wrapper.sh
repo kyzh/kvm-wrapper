@@ -588,6 +588,21 @@ function kvm_bootstrap_vm ()
 	return 0
 }
 
+function kvm_build_vm ()
+{
+	VM_NAME="$1"
+	kvm_create_descriptor "$VM_NAME"
+	
+	test_file "$AUTOCONF_SCRIPT"
+	source "$AUTOCONF_SCRIPT"
+
+	exit 0 # Let's stop there for now :P
+		
+	lvm_create_disk "$VM_NAME"
+	kvm_bootstrap_vm "$VM_NAME"
+	kvm_start_screen "$VM_NAME"
+}
+
 function kvm_remove ()
 {
 	VM_NAME="$1"
@@ -690,9 +705,15 @@ case "$1" in
 		    kvm_edit_descriptor "$2"
 		else print_help; fi
 		;;
-	create)
-		kvm_create_descriptor "$2" "$3" "$4"
+	create-desc*)
+		if [[ $# -ge 2 ]]; then
+			kvm_create_descriptor "$2" "$3" "$4"
+		else print_help; fi
 		;;
+	create|build)
+		if [[ $# -ge 2 ]]; then
+			kvm_build_vm "$2"
+		else print_help; fi
 	remove)
 		if [[ $# -eq 2 ]]; then
 		    kvm_remove "$2"
