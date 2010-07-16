@@ -1,0 +1,2 @@
+# This is the script that autoconfigures the vm descriptor.
+# You can use the desc_update_setting-like functions and $VM_NAME
