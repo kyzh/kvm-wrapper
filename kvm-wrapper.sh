@@ -191,7 +191,9 @@ function lvm_create_disk ()
 	test_file "$VM_DESCRIPTOR" || fail_exit "Couldn't open VM $VM_NAME descriptor :\n$VM_DESCRIPTOR"
 	source "$VM_DESCRIPTOR"
 
-	eval $LVM_LVCREATE_BIN --name ${LVM_LV_NAME:-"vm.$VM_NAME"} --size $LVM_LV_SIZE $LVM_VG_NAME
+	LVM_LV_NAME="${LVM_LV_NAME:-"vm.$VM_NAME"}"
+	eval "$LVM_LVCREATE_BIN --name $LVM_LV_NAME --size $LVM_LV_SIZE $LVM_VG_NAME"
+	desc_update_setting "KVM_HDA" "/dev/$LVM_VG_NAME/$LVM_LV_NAME"
 }
 
 
@@ -589,9 +591,13 @@ function kvm_bootstrap_vm ()
 function kvm_remove ()
 {
 	VM_NAME="$1"
+	PID_FILE="$PID_DIR/$VM_NAME-vm.pid"
+	test_file "$PID_FILE" && fail_exit "Error : $VM_NAME seems to be running. Please stop it before trying to remove it."
+
 	VM_DESCRIPTOR="$VM_DIR/$VM_NAME-vm"
 	test_file_rw "$VM_DESCRIPTOR" || fail_exit "Couldn't read/write VM $VM_NAME descriptor :\n$VM_DESCRIPTOR"
 	source "$VM_DESCRIPTOR"
+
 	local DRIVES_LIST=""
 	[[ -n "$KVM_HDA" ]] && DRIVES_LIST="$DRIVES_LIST$KVM_HDA\n"
 	[[ -n "$KVM_HDB" ]] && DRIVES_LIST="$DRIVES_LIST$KVM_HDB\n"
