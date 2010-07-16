@@ -226,9 +226,15 @@ function desc_update_setting ()
 # Revert descriptor setting modified by this script
 function desc_revert_setting()
 {
-	local IDENT=$1
+	local IDENT="$1"
 	sed -i "/^[^#].*###AUTO$IDENT$/d" "$VM_DESCRIPTOR"
 	sed -ie "s/^#\(.*\)###AUTO$IDENT$/\1/g" "$VM_DESCRIPTOR"
+}
+
+function desc_remove_setting()
+{
+	local KEY="$1"
+	sed -i "/^$KEY/d" "$VM_DESCRIPTOR"
 }
 
 function monitor_send_cmd ()
@@ -507,14 +513,8 @@ function kvm_create_descriptor ()
 	echo "# Created : `date` on $HOSTNAME by $USER" >> "$VM_DESCRIPTOR"
 	echo "" 										>> "$VM_DESCRIPTOR"
 
-	local foo=`grep -n '#xxDEFAULTxx#' "$CONFFILE"`
-	foo=${foo%:*}
-	
-	cat "$CONFFILE" | while read LINE
-	do
-		[[ $foo -lt 0 ]] && echo "#$LINE" >> "$VM_DESCRIPTOR"
-		((foo--))
-	done
+
+	awk '/#xxDEFAULTxx#/,0 { print "#" $0}' $CONFFILE|grep -v "#xxDEFAULTxx#" >> "$VM_DESCRIPTOR"
 
 	if [[ "xx$DISK_CREATED" == "xx1" ]]
 	then

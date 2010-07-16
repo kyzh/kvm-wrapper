@@ -15,7 +15,9 @@ BOOTSTRAP_LINUX_IMAGE="linux-image-$ARCH_SUFFIX"
 BOOTSTRAP_REPOSITORY="http://ftp.fr.debian.org/debian/"
 BOOTSTRAP_FLAVOR="lenny"
 BOOTSTRAP_EXTRA_PKGSS="vim-nox,htop,screen,less,bzip2,bash-completion,locate,acpid,$BOOTSTRAP_LINUX_IMAGE"
-BOOTSTRAP_PARTITION_TYPE="msdos" #FIXME should be able to define it per-vm
+if [[ "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then
+	BOOTSTRAP_EXTRA_PKGSS+=",grub"
+fi
 BOOTSTRAP_CONF_DIR="$BOOTSTRAP_DIR/$BOOTSTRAP_DISTRIB/conf"
 BOOTSTRAP_KERNEL="$BOOT_IMAGES_DIR/vmlinuz-$ARCH_SUFFIX"
 BOOTSTRAP_INITRD="$BOOT_IMAGES_DIR/initrd.img-$ARCH_SUFFIX"
@@ -86,10 +88,20 @@ cat /proc/mounts
 mount -nt proc proc /proc
 dpkg -i /var/cache/apt/archives/linux-image-2.6*
 
+EOF
+
+	if [[ "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then
+		cat >> "$BS_FILE" << EOF
+grub-install /dev/hda
+update-grub
+EOF
+	fi
+
+	cat >> "$BS_FILE" << EOF
 echo "Bootstrap ended, halting"
 exec /sbin/init 0
-
 EOF
+
 	chmod +x "$BS_FILE"
 	
 	sed -ie "s/linux-image-[^ ]\+//g" "$MNTDIR/debootstrap/base"
@@ -107,7 +119,14 @@ EOF
 	
 	mount "$PARTDEV" "$MNTDIR"
 	
-
+	if [[ "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then
+		desc_remove_setting "KVM_KERNEL"
+		desc_remove_setting "KVM_INITRD"
+		desc_remove_setting "KVM_APPEND"
+	fi
+	
+	rm "$BS_FILE"
+	
 	# Copy some files/configuration from host
 	bs_copy_from_host /etc/hosts
 	bs_copy_from_host /etc/resolv.conf

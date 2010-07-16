@@ -2,3 +2,6 @@
 # Add in this file the VMs you want to be launched with the kvm-wrapper
 # init.d script
 # One line per VM
+
+test
+nuxeo-test
