@@ -100,18 +100,12 @@ EOF
 	# Copy some files/configuration from host
 	bs_copy_from_host /etc/hosts
 	bs_copy_from_host /etc/resolv.conf
-	bs_copy_conf_dir
-#	bs_copy_from_host /etc/bash.bashrc
-#	bs_copy_from_host /etc/profile
-#	bs_copy_from_host /root/.bashrc
-#	bs_copy_from_host /etc/vim/vimrc
-#	bs_copy_from_host /etc/screenrc
-#	bs_copy_from_host /etc/apt/sources.list
+	bs_copy_from_host /etc/timezone
+	bs_copy_from_host /etc/localtime
+
 	echo "$VM_NAME" > "$MNTDIR/etc/hostname"
-
-	echo "Europe/Paris" > "$MNTDIR/etc/timezone"
-	cp /usr/share/zoneinfo/Europe/Paris "$MNTDIR/etc/localtime"
-
+	# Custom files
+	bs_copy_conf_dir
 	
 	# fstab
 	cat > "$MNTDIR/etc/fstab" << EOF
