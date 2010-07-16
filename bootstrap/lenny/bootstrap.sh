@@ -7,7 +7,11 @@
 ### Configuration
 BOOTSTRAP_REPOSITORY="http://ftp.fr.debian.org/debian/"
 BOOTSTRAP_FLAVOR="lenny"
-BOOTSTRAP_LINUX_IMAGE="linux-image-`uname -r`"
+if [[ "`uname -m`" == "x86_64" ]]; then
+	BOOTSTRAP_LINUX_IMAGE="linux-image-amd64"
+else
+	BOOTSTRAP_LINUX_IMAGE="linux-image-686"
+fi
 BOOTSTRAP_EXTRA_PKGSS="vim-nox,htop,screen,less,bzip2,bash-completion,locate,acpid,$BOOTSTRAP_LINUX_IMAGE"
 BOOTSTRAP_PARTITION_TYPE="msdos"
 BOOTSTRAP_CONF_DIR="$BOOTSTRAP_DIR/$BOOTSTRAP_DISTRIB/conf"
