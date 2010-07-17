@@ -21,6 +21,7 @@ fi
 BOOTSTRAP_CONF_DIR="$BOOTSTRAP_DIR/$BOOTSTRAP_DISTRIB/conf"
 BOOTSTRAP_KERNEL="$BOOT_IMAGES_DIR/vmlinuz-$ARCH_SUFFIX"
 BOOTSTRAP_INITRD="$BOOT_IMAGES_DIR/initrd.img-$ARCH_SUFFIX"
+BOOTSTRAP_CACHE="/var/cache/kvm-wrapper/debootstrap-firststage.tar"
 ### 
 
 function map_disk()
@@ -49,8 +50,8 @@ function bs_copy_conf_dir()
 
 function bootstrap_fs()
 {
-	test_file "$BOOTSTRAP_KERNEL" || fail_exit "Could'nt find bootstrap kernel : $BOOTSTRAP_KERNEL"
-	test_file "$BOOTSTRAP_INITRD" || fail_exit "Could'nt find bootstrap initrd : $BOOTSTRAP_KERNEL"
+	test_file "$BOOTSTRAP_KERNEL" || fail_exit "Couldn't find bootstrap kernel : $BOOTSTRAP_KERNEL"
+	test_file "$BOOTSTRAP_INITRD" || fail_exit "Couldn't find bootstrap initrd : $BOOTSTRAP_KERNEL"
 
 	MNTDIR="`mktemp -d`"
 	CLEANUP+=("rmdir $MNTDIR")
@@ -75,8 +76,35 @@ EOF
 	CLEANUP+=("umount $MNTDIR")	
 	CLEANUP+=("sync")
 
-	# Now debootstrap, first stage (do not configure)
-	debootstrap --foreign --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_REPOSITORY"
+	echo
+	echo
+
+	# Now debootstrap, first stage (do not configure), or decompress cache for this.
+	# First we check if the cache is too old.
+	if [[ -n "$BOOTSTRAP_CACHE" && -f "$BOOTSTRAP_CACHE" ]]; then
+		find "$BOOTSTRAP_CACHE" -mtime +15 -exec rm {} \;
+	    if [[ ! -f "$BOOTSTRAP_CACHE" ]]; then
+			echo "Debootstrap cache $BOOTSTRAP_CACHE is too old and has been removed."
+			echo "Generating a new one instead"
+		fi
+	fi
+
+	if [[ -f "$BOOTSTRAP_CACHE" ]]; then
+		echo "Decompressing $BOOTSTRAP_CACHE - if you changed anything to debootstrap arguments, please remove this file"
+		echo "It is automatically removed if it is more than two weeks old."
+		cd "$MNTDIR"
+		tar xf "$BOOTSTRAP_CACHE"
+		cd - > /dev/null
+	else
+		debootstrap --foreign --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_REPOSITORY"
+		if [[ -n "$BOOTSTRAP_CACHE" ]]; then
+			echo "Building cache file $BOOTSTRAP_CACHE."
+			cd "$MNTDIR"
+			tar cf "$BOOTSTRAP_CACHE" .
+			cd - > /dev/null
+		fi
+	fi
+
 	
 	# init script to be run on first VM boot
 	local BS_FILE="$MNTDIR/bootstrap-init.sh"
@@ -84,9 +112,13 @@ EOF
 #!/bin/sh
 mount -no remount,rw /
 cat /proc/mounts
+
+# Fix for linux-image module which isn't handled correctly by debootstrap
+touch /vmlinuz /initrd.img
+echo "do_initrd = Yes" >> /etc/kernel-img.conf
+
 /debootstrap/debootstrap --second-stage
 mount -nt proc proc /proc
-dpkg -i /var/cache/apt/archives/linux-image-2.6*
 
 EOF
 
@@ -104,9 +136,7 @@ exec /sbin/init 0
 EOF
 
 	chmod +x "$BS_FILE"
-	
-	sed -ie "s/linux-image-[^ ]\+//g" "$MNTDIR/debootstrap/base"
-	
+
 	# umount
 	sync
 	umount "$MNTDIR"
