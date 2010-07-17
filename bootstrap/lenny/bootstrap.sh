@@ -14,7 +14,7 @@ fi
 BOOTSTRAP_LINUX_IMAGE="linux-image-$ARCH_SUFFIX"
 BOOTSTRAP_REPOSITORY="http://ftp.fr.debian.org/debian/"
 BOOTSTRAP_FLAVOR="lenny"
-BOOTSTRAP_EXTRA_PKGSS="vim-nox,htop,screen,less,bzip2,bash-completion,locate,acpid,$BOOTSTRAP_LINUX_IMAGE"
+BOOTSTRAP_EXTRA_PKGSS="vim-nox,htop,screen,less,bzip2,bash-completion,locate,acpid,bind9-host,$BOOTSTRAP_LINUX_IMAGE"
 if [[ "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then
 	BOOTSTRAP_EXTRA_PKGSS+=",grub"
 fi
@@ -120,12 +120,6 @@ EOF
 	
 	mount "$PARTDEV" "$MNTDIR"
 	
-	if [[ "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then
-		desc_remove_setting "KVM_KERNEL"
-		desc_remove_setting "KVM_INITRD"
-		desc_remove_setting "KVM_APPEND"
-	fi
-	
 	rm "$BS_FILE"
 	
 	# Copy some files/configuration from host
@@ -173,5 +167,12 @@ EOF
 	sync
 
 	desc_update_setting "KVM_APPEND" "root=$rootdev ro"
+
+	if [[ "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then
+		desc_remove_setting "KVM_KERNEL"
+		desc_remove_setting "KVM_INITRD"
+		desc_remove_setting "KVM_APPEND"
+	fi
+	
 }
 

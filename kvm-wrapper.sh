@@ -593,14 +593,13 @@ function kvm_build_vm ()
 	VM_NAME="$1"
 	kvm_create_descriptor "$VM_NAME"
 	
-	test_file "$AUTOCONF_SCRIPT"
+	test_file "$AUTOCONF_SCRIPT" || fail_exit "Couldn't read autoconfiguration script $AUTOCONF_SCRIPT\n"
 	source "$AUTOCONF_SCRIPT"
 
-	exit 0 # Let's stop there for now :P
-		
 	lvm_create_disk "$VM_NAME"
 	kvm_bootstrap_vm "$VM_NAME"
 	kvm_start_screen "$VM_NAME"
+	kvm_attach_screen "$VM_NAME"
 }
 
 function kvm_remove ()
@@ -714,6 +713,7 @@ case "$1" in
 		if [[ $# -ge 2 ]]; then
 			kvm_build_vm "$2"
 		else print_help; fi
+		;;
 	remove)
 		if [[ $# -eq 2 ]]; then
 		    kvm_remove "$2"
