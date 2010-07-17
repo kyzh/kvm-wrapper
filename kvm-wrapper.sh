@@ -590,11 +590,47 @@ function kvm_bootstrap_vm ()
 
 function kvm_build_vm ()
 {
+
+	local USER_OPTIONS=( )
+
+	while [[ "$#" -gt 1 ]]; do
+		case "$1" in
+			"-s"|"--size")
+				USER_OPTIONS+=("LVM_LV_SIZE")
+				USER_OPTIONS+=("$2")
+				shift; shift
+				;;
+			"-m"|"--mem"|"--memory")
+				USER_OPTIONS+=("KVM_MEM")
+				USER_OPTIONS+=("$2")
+				shift; shift
+				;;
+			"-c"|"--cpu"|"--smp")
+				USER_OPTIONS+=("KVM_CPU_NUM")
+				USER_OPTIONS+=("$2")
+				shift; shift
+				;;
+			"--swap")
+				USER_OPTIONS+=("SWAP_SIZE")
+				USER_OPTIONS+=("$2")
+				shift; shift
+				;;
+		esac
+	done
+	if [[ ! "$#" -eq 1 ]]; then print_help; exit 1; fi
+
 	VM_NAME="$1"
 	kvm_create_descriptor "$VM_NAME"
 	
 	test_file "$AUTOCONF_SCRIPT" || fail_exit "Couldn't read autoconfiguration script $AUTOCONF_SCRIPT\n"
 	source "$AUTOCONF_SCRIPT"
+
+	if [ ${#USER_OPTIONS[*]} -gt 0 ]; then
+		LAST_ELEMENT=$((${#USER_OPTIONS[*]}-2))
+		for i in `seq 0 2 $LAST_ELEMENT`; do
+			desc_update_setting "${USER_OPTIONS[$i]}" "${USER_OPTIONS[$((i+1))]}"
+		done
+	fi
 
 	lvm_create_disk "$VM_NAME"
 	kvm_bootstrap_vm "$VM_NAME"
@@ -714,7 +750,8 @@ case "$1" in
 		;;
 	create|build)
 		if [[ $# -ge 2 ]]; then
-			kvm_build_vm "$2"
+			shift
+			kvm_build_vm $@
 		else print_help; fi
 		;;
 	remove)
