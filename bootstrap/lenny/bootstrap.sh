@@ -51,7 +51,7 @@ function bs_copy_conf_dir()
 function bootstrap_fs()
 {
 	test_file "$BOOTSTRAP_KERNEL" || fail_exit "Couldn't find bootstrap kernel : $BOOTSTRAP_KERNEL"
-	test_file "$BOOTSTRAP_INITRD" || fail_exit "Couldn't find bootstrap initrd : $BOOTSTRAP_KERNEL"
+	test_file "$BOOTSTRAP_INITRD" || fail_exit "Couldn't find bootstrap initrd : $BOOTSTRAP_INITRD"
 
 	MNTDIR="`mktemp -d`"
 	CLEANUP+=("rmdir $MNTDIR")
