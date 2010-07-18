@@ -616,6 +616,10 @@ function kvm_build_vm ()
 				USER_OPTIONS+=("$2")
 				shift; shift
 				;;
+			"-e"|"--edit"|"--edit-conf")
+				EDIT_CONF="yes"
+				shift
+				;;
 		esac
 	done
 	if [[ ! "$#" -eq 1 ]]; then print_help; exit 1; fi
@@ -627,6 +631,10 @@ function kvm_build_vm ()
 	kvm_create_descriptor "$VM_NAME"
 	
 	source "$AUTOCONF_SCRIPT"
+
+	if [[ -n "$EDIT_CONF" ]]; then
+		kvm_edit_descriptor "$VM_NAME"
+	fi
 
 	if [ ${#USER_OPTIONS[*]} -gt 0 ]; then
 		LAST_ELEMENT=$((${#USER_OPTIONS[*]}-2))
@@ -675,11 +683,12 @@ function print_help ()
 	echo -e ""
 	echo -e "       $SCRIPT_NAME status [virtual-machine]"
 	echo -e "       $SCRIPT_NAME list"
-	echo -e ""
+	echo
+	echo -e "		$SCRIPT_NAME create	[-m mem] [-c cpu] [--edit] [-s disksize] virtual-machine"
 	echo -e "       $SCRIPT_NAME create-disk virtual-machine [diskimage [size]]"
 	echo -e "       $SCRIPT_NAME bootstrap   virtual-machine distribution"
 	echo -e "       $SCRIPT_NAME remove virtual-machine"
-	echo -e "       $SCRIPT_NAME edit   virtual-machine"
+	echo -e "       $SCRIPT_NAME edit  virtual-machine"
 	exit 2
 }
 
