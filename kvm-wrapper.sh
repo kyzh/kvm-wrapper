@@ -290,7 +290,6 @@ function kvm_start_vm ()
 	check_create_dir "$PID_DIR"
 	check_create_dir "$MONITOR_DIR"
 	check_create_dir "$SERIAL_DIR"
-	check_create_dir "$BOOT_IMAGES_DIR"
 
 	test_file "$VM_DESCRIPTOR" || fail_exit "Couldn't open VM $VM_NAME descriptor :\n$VM_DESCRIPTOR"
 	source "$VM_DESCRIPTOR"
@@ -547,6 +546,8 @@ function kvm_bootstrap_vm ()
 	trap cleanup EXIT
 
 	require_exec "kpartx"
+	check_create_dir "$BOOT_IMAGES_DIR"
+	check_create_dir "$CACHE_DIR"
 
 	VM_NAME="$1"
 	VM_DESCRIPTOR="$VM_DIR/$VM_NAME-vm"
@@ -620,9 +621,11 @@ function kvm_build_vm ()
 	if [[ ! "$#" -eq 1 ]]; then print_help; exit 1; fi
 
 	VM_NAME="$1"
+
+	test_file "$AUTOCONF_SCRIPT" || fail_exit "Couldn't read autoconfiguration script $AUTOCONF_SCRIPT\n"
+
 	kvm_create_descriptor "$VM_NAME"
 	
-	test_file "$AUTOCONF_SCRIPT" || fail_exit "Couldn't read autoconfiguration script $AUTOCONF_SCRIPT\n"
 	source "$AUTOCONF_SCRIPT"
 
 	if [ ${#USER_OPTIONS[*]} -gt 0 ]; then
@@ -673,9 +676,10 @@ function print_help ()
 	echo -e "       $SCRIPT_NAME status [virtual-machine]"
 	echo -e "       $SCRIPT_NAME list"
 	echo -e ""
-	echo -e "       $SCRIPT_NAME edit   virtual-machine"
-	echo -e "       $SCRIPT_NAME create virtual-machine [diskimage] [size]"
+	echo -e "       $SCRIPT_NAME create-disk virtual-machine [diskimage [size]]"
+	echo -e "       $SCRIPT_NAME bootstrap   virtual-machine distribution"
 	echo -e "       $SCRIPT_NAME remove virtual-machine"
+	echo -e "       $SCRIPT_NAME edit   virtual-machine"
 	exit 2
 }
 
