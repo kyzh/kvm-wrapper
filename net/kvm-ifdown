@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Script called by kvm on tap interface creation
+# Script called by kvm on tap interface deletion
 #
 
 echo "$0:"

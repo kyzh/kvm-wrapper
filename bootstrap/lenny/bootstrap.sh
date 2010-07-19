@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Bootstrap VM
 #
 # -- bencoh, 2010/07/11
@@ -46,11 +46,18 @@ function bootstrap_fs()
 	local PARTDEV=$1
 
 	local rootdev="/dev/hda"
-
+	
 	if [[ "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then
-		sfdisk -H 255 -S 63 -uS --quiet --Linux "$DISKDEV" <<EOF
-63,,L,*
+		if [[ -n "$SWAP_SIZE" ]]; then
+	   		sfdisk -D -H 255 -S 63 -uM --Linux "$DISKDEV" <<EOF
+,$ROOT_SIZE,L,*
+,,S
 EOF
+		else
+			sfdisk -D -H 255 -S 63 -uM --Linux "$DISKDEV" <<EOF
+,,L,*
+EOF
+		fi
 		PARTDEV=`map_disk $DISKDEV`
 		rootdev="/dev/hda1"
 		CLEANUP+=("unmap_disk $DISKDEV")
@@ -133,8 +140,11 @@ EOF
 		cat >> "$BS_FILE" << EOF
 /usr/sbin/grub-install /dev/hda
 /usr/sbin/update-grub
-
 EOF
+	fi
+
+	if [[ -n "$SWAP_SIZE" ]]; then
+		echo "mkswap /dev/hda2" >> "$BS_FILE"
 	fi
 
 	if [[ -n "$BOOTSTRAP_FIRSTRUN_COMMAND" ]]; then
@@ -188,6 +198,10 @@ $rootdev	/		ext3	errors=remount-ro	0	1
 proc		/proc	proc	defaults			0	0
 sysfs		/sys	sysfs	defaults			0	0
 EOF
+	
+	if [[ -n "$SWAP_SIZE" && "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then
+		echo "/dev/hda2		none	swap	sw	0	0" >> "$MNTDIR/etc/fstab"
+	fi
 
 
 	# interfaces

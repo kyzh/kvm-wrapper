@@ -214,6 +214,8 @@ function lvm_create_disk ()
 	kvm_init_env "$1"
 
 	LVM_LV_NAME="${LVM_LV_NAME:-"vm.$VM_NAME"}"
+	local LVM_LV_SIZE=$(($ROOT_SIZE+${SWAP_SIZE:-0}))
+
 	eval "$LVM_LVCREATE_BIN --name $LVM_LV_NAME --size $LVM_LV_SIZE $LVM_VG_NAME"
 	desc_update_setting "KVM_HDA" "/dev/$LVM_VG_NAME/$LVM_LV_NAME"
 }
@@ -627,7 +629,7 @@ function kvm_build_vm ()
 	while [[ "$#" -gt 1 ]]; do
 		case "$1" in
 			"-s"|"--size")
-				USER_OPTIONS+=("LVM_LV_SIZE")
+				USER_OPTIONS+=("ROOT_SIZE")
 				USER_OPTIONS+=("$2")
 				shift; shift
 				;;
