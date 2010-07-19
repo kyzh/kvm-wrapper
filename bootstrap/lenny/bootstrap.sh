@@ -24,19 +24,6 @@ BOOTSTRAP_INITRD="$BOOT_IMAGES_DIR/initrd.img-$ARCH_SUFFIX"
 BOOTSTRAP_CACHE="$CACHE_DIR/$BOOTSTRAP_DISTRIB-debootstrap.tar"
 ### 
 
-function map_disk()
-{
-	local DISKDEV=$1
-	kpartx -a -p- $DISKDEV > /dev/null
-	echo /dev/mapper/`kpartx -l -p- $DISKDEV | grep -m 1 -- "-1.*$DISKDEV" | awk '{print $1}'`
-}
-
-function unmap_disk()
-{
-	local DISKDEV=$1
-	kpartx -d -p- $DISKDEV
-}
-
 function bs_copy_from_host()
 {
 	local FILE="$1"
@@ -150,7 +137,13 @@ EOF
 EOF
 	fi
 
+	if [[ -n "$BOOTSTRAP_FIRSTRUN_COMMAND" ]]; then
+		echo eval "$BOOTSTRAP_FIRSTRUN_COMMAND" >> "$BS_FILE"
+	fi
+
 	cat >> "$BS_FILE" << EOF
+aptitude update
+
 echo "Bootstrap ended, halting"
 exec /sbin/init 0
 EOF
@@ -214,6 +207,10 @@ iface eth0 inet dhcp
 EOF
 	fi
 	
+	if [[ -n "$BOOTSTRAP_FINALIZE_COMMAND" ]]; then
+		eval "$BOOTSTRAP_FINALIZE_COMMAND"
+	fi
+
 	sync
 
 	desc_update_setting "KVM_APPEND" "root=$rootdev ro"
