@@ -566,6 +566,7 @@ function kvm_bootstrap_vm ()
 
 	cleanup()
 	{
+		echo "Cleaning up the mess"
 		if [ ${#CLEANUP[*]} -gt 0 ]; then
 			LAST_ELEMENT=$((${#CLEANUP[*]}-1))
 			for i in `seq $LAST_ELEMENT -1 0`; do
@@ -578,6 +579,7 @@ function kvm_bootstrap_vm ()
 
 	set +e
 	trap cleanup EXIT
+	trap "fail_exit \"Got a SIGINT/SIGTERM...\"" SIGINT SIGTERM
 
 	require_exec "kpartx"
 	check_create_dir "$BOOT_IMAGES_DIR"
@@ -611,7 +613,7 @@ function kvm_bootstrap_vm ()
 	test_blockdev "$KVM_HDA" || kvm_nbd_disconnect "$KVM_HDA"
 
 	cleanup
-	trap - EXIT
+	trap - EXIT SIGINT SIGTERM
 	set -e
 
 	echo "Bootstrap ended."

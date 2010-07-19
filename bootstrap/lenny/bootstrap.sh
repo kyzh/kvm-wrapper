@@ -150,6 +150,11 @@ EOF
 
 	chmod +x "$BS_FILE"
 
+	if [[ -n "$BOOTSTRAP_PRERUN_COMMAND" ]]; then
+		eval "$BOOTSTRAP_PRERUN_COMMAND"
+	fi
+
+
 	# umount
 	sync
 	umount "$MNTDIR"
