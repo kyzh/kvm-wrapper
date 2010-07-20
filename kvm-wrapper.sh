@@ -217,7 +217,7 @@ function lvm_create_disk ()
 	local LVM_LV_SIZE=$(($ROOT_SIZE+${SWAP_SIZE:-0}))
 
 	eval "$LVM_LVCREATE_BIN --name $LVM_LV_NAME --size $LVM_LV_SIZE $LVM_VG_NAME"
-	desc_update_setting "KVM_HDA" "/dev/$LVM_VG_NAME/$LVM_LV_NAME"
+	desc_update_setting "KVM_DISK1" "/dev/$LVM_VG_NAME/$LVM_LV_NAME"
 }
 
 function map_disk()
@@ -235,18 +235,25 @@ function unmap_disk()
 
 function lvm_mount_disk()
 {
+	set -e
 	kvm_init_env "$1"
-	PART=`map_disk "$KVM_HDA"`
+
+	test_file "$PID_FILE" && fail_exit "VM $VM_NAME seems to be running! (PID file $PID_FILE exists)\nYou cannot mount disk on a running VM"
+
+	PART=`map_disk "$KVM_DISK1"`
 	mkdir -p "/mnt/$VM_NAME"
 	mount "$PART" "/mnt/$VM_NAME"
+	set +e
 }
 
 function lvm_umount_disk()
 {
+	set -e
 	kvm_init_env "$1"
-	umount "/mnt/$VM_NAME"
+	umount "/mnt/$VM_NAME" 
 	rmdir "/mnt/$VM_NAME"
-	unmap_disk "$KVM_HDA"
+	unmap_disk "$KVM_DISK1"
+	set +e
 }
 
 # VM descriptor helpers
@@ -344,15 +351,22 @@ function kvm_start_vm ()
 
 	# Build KVM Drives (hdd, cdrom) parameters
 	local KVM_DRIVES=""
-	[[ -n "$KVM_HDA" ]] && KVM_DRIVES="$KVM_DRIVES -hda $KVM_HDA"
-	[[ -n "$KVM_HDB" ]] && KVM_DRIVES="$KVM_DRIVES -hdb $KVM_HDB"
-	[[ -n "$KVM_HDC" ]] && KVM_DRIVES="$KVM_DRIVES -hdc $KVM_HDC"
-	[[ -n "$KVM_HDD" ]] && KVM_DRIVES="$KVM_DRIVES -hdd $KVM_HDD"
-	[[ -n "$KVM_CDROM" ]] && KVM_DRIVES="$KVM_DRIVES -cdrom $KVM_CDROM"
+	if [[ -n "KVM_DRIVE_IF" ]]; then
+		[[ -n "$KVM_DISK1" ]] && KVM_DRIVES="$KVM_DRIVES -drive file=\"$KVM_DISK1\",if=$KVM_DRIVE_IF,boot=on"
+		[[ -n "$KVM_DISK2" ]] && KVM_DRIVES="$KVM_DRIVES -drive file=\"$KVM_DISK2\",if=$KVM_DRIVE_IF,boot=on"
+		[[ -n "$KVM_DISK3" ]] && KVM_DRIVES="$KVM_DRIVES -drive file=\"$KVM_DISK3\",if=$KVM_DRIVE_IF,boot=on"
+		[[ -n "$KVM_DISK4" ]] && KVM_DRIVES="$KVM_DRIVES -drive file=\"$KVM_DISK4\",if=$KVM_DRIVE_IF,boot=on"
+	else
+		[[ -n "$KVM_DISK1" ]] && KVM_DRIVES="$KVM_DRIVES -drive file=\"$KVM_DISK1\""
+		[[ -n "$KVM_DISK2" ]] && KVM_DRIVES="$KVM_DRIVES -drive file=\"$KVM_DISK2\""
+		[[ -n "$KVM_DISK3" ]] && KVM_DRIVES="$KVM_DRIVES -drive file=\"$KVM_DISK3\""
+		[[ -n "$KVM_DISK4" ]] && KVM_DRIVES="$KVM_DRIVES -drive file=\"$KVM_DISK4\""
+	fi
+	[[ -n "$KVM_CDROM" ]] && KVM_DRIVES="$KVM_DRIVES -cdrom \"$KVM_CDROM\""
 	[[ "$KVM_DRIVES" == "" ]] && fail_exit "Your VM $VM_NAME should at least use one cdrom or harddisk drive !\nPlease check your conf file :\n$VM_DESCRIPTOR"
 	local LINUXBOOT=""
-	[[ -n "$KVM_KERNEL" ]] && LINUXBOOT="$LINUXBOOT -kernel $KVM_KERNEL"
-	[[ -n "$KVM_INITRD" ]] && LINUXBOOT="$LINUXBOOT -initrd $KVM_INITRD"
+	[[ -n "$KVM_KERNEL" ]] && LINUXBOOT="$LINUXBOOT -kernel \"$KVM_KERNEL\""
+	[[ -n "$KVM_INITRD" ]] && LINUXBOOT="$LINUXBOOT -initrd \"$KVM_INITRD\""
 	[[ -n "$KVM_APPEND" ]] && LINUXBOOT="$LINUXBOOT -append \"$KVM_APPEND\""
 
 	# Network scripts
@@ -447,11 +461,11 @@ function kvm_stop_vm ()
 function kvm_run_disk ()
 {
 	require_exec "$KVM_BIN"
-	KVM_HDA="$1"
-	test_file_rw "$KVM_HDA" || "Couldn't read/write image file :\n$KVM_HDA"
+	KVM_DISK1="$1"
+	test_file_rw "$KVM_DISK1" || "Couldn't read/write image file :\n$KVM_DISK1"
 
 	# Build kvm exec string
-	local EXEC_STRING="$KVM_BIN -net nic,model=$KVM_NETWORK_MODEL,macaddr=$KVM_MACADDRESS -net tap -hda $KVM_HDA -boot c -k $KVM_KEYMAP $KVM_OUTPUT $KVM_ADDITIONNAL_PARAMS"
+	local EXEC_STRING="$KVM_BIN -net nic,model=$KVM_NETWORK_MODEL,macaddr=$KVM_MACADDRESS -net tap -hda $KVM_DISK1 -boot c -k $KVM_KEYMAP $KVM_OUTPUT $KVM_ADDITIONNAL_PARAMS"
 	eval "$EXEC_STRING"
 
 	return 0
@@ -553,8 +567,8 @@ function kvm_create_descriptor ()
 
 	if [[ "xx$DISK_CREATED" == "xx1" ]]
 	then
-		local HDA_LINE="KVM_HDA=\"$KVM_IMG_DISKNAME\""
-		sed -i "s,##KVM_HDA,$HDA_LINE,g" "$VM_DESCRIPTOR"
+		local HDA_LINE="KVM_DISK1=\"$KVM_IMG_DISKNAME\""
+		sed -i "s,##KVM_DISK1,$HDA_LINE,g" "$VM_DESCRIPTOR"
 	fi
 	local MAC_ADDR="`random_mac`"
 	sed -i 's/`random_mac`/'"$MAC_ADDR/g" "$VM_DESCRIPTOR"
@@ -568,6 +582,7 @@ function kvm_bootstrap_vm ()
 
 	cleanup()
 	{
+		set +e
 		echo "Cleaning up the mess"
 		if [ ${#CLEANUP[*]} -gt 0 ]; then
 			LAST_ELEMENT=$((${#CLEANUP[*]}-1))
@@ -579,9 +594,8 @@ function kvm_bootstrap_vm ()
 
 	local CLEANUP=( )
 
-	set +e
+	set -e
 	trap cleanup EXIT
-	trap "fail_exit \"Got a SIGINT/SIGTERM...\"" SIGINT SIGTERM
 
 	require_exec "kpartx"
 	check_create_dir "$BOOT_IMAGES_DIR"
@@ -598,25 +612,25 @@ function kvm_bootstrap_vm ()
 	source "$BOOTSTRAP_SCRIPT"
 	
 	#test_blockdev "$BOOTSTRAP_DEVICE" || fail_exit "Sorry, kvm-wrapper can only bootstrap blockdevices yet."
-	if ! test_blockdev "$KVM_HDA"
+	if ! test_blockdev "$KVM_DISK1"
 	then
 		require_exec "$KVM_NBD_BIN"
-		test_file "$KVM_HDA" || fail_exit ""$KVM_HDA" appears to be neither a blockdev nor a regular file."
+		test_file "$KVM_DISK1" || fail_exit ""$KVM_DISK1" appears to be neither a blockdev nor a regular file."
 		echo "Attempting to connect the disk image to an nbd device."
-		kvm_nbd_connect "$KVM_HDA"
-		local BOOTSTRAP_DEVICE=$(nbd_img_link "$KVM_HDA")
+		kvm_nbd_connect "$KVM_DISK1"
+		local BOOTSTRAP_DEVICE=$(nbd_img_link "$KVM_DISK1")
 	else
-		local BOOTSTRAP_DEVICE="$KVM_HDA"
+		local BOOTSTRAP_DEVICE="$KVM_DISK1"
 	fi
 
-	echo "Starting to bootstrap $VM_NAME as $BOOTSTRAP_DISTRIB on disk $KVM_HDA"
+	echo "Starting to bootstrap $VM_NAME as $BOOTSTRAP_DISTRIB on disk $KVM_DISK1"
 	bootstrap_fs "$BOOTSTRAP_DEVICE"
 	sync
-	test_blockdev "$KVM_HDA" || kvm_nbd_disconnect "$KVM_HDA"
+	test_blockdev "$KVM_DISK1" || kvm_nbd_disconnect "$KVM_DISK1"
 
 	cleanup
-	trap - EXIT SIGINT SIGTERM
-	set -e
+	trap - EXIT
+	set +e
 
 	echo "Bootstrap ended."
 	return 0
@@ -691,14 +705,27 @@ function kvm_remove ()
 
 	test_file "$PID_FILE" && fail_exit "Error : $VM_NAME seems to be running. Please stop it before trying to remove it."
 
-	local DRIVES_LIST=""
-	[[ -n "$KVM_HDA" ]] && DRIVES_LIST="$DRIVES_LIST$KVM_HDA\n"
-	[[ -n "$KVM_HDB" ]] && DRIVES_LIST="$DRIVES_LIST$KVM_HDB\n"
-	[[ -n "$KVM_HDC" ]] && DRIVES_LIST="$DRIVES_LIST$KVM_HDC\n"
-	[[ -n "$KVM_HDD" ]] && DRIVES_LIST="$DRIVES_LIST$KVM_HDD\n"
-	if [[ -n "$DRIVES_LIST" ]]; then
+	local DRIVES_LIST=( )
+	[[ -n "$KVM_DISK1" ]] && DRIVES_LIST+=("$DRIVES_LIST$KVM_DISK1")
+	[[ -n "$KVM_DISK2" ]] && DRIVES_LIST+=("$DRIVES_LIST$KVM_DISK2")
+	[[ -n "$KVM_DISK3" ]] && DRIVES_LIST+=("$DRIVES_LIST$KVM_DISK3")
+	[[ -n "$KVM_DISK4" ]] && DRIVES_LIST+=("$DRIVES_LIST$KVM_DISK4")
+	if [ ${#DRIVES_LIST[*]} -gt 0 ]; then
+		LAST_ELEMENT=$((${#DRIVES_LIST[*]}-1))
+		for i in `seq $LAST_ELEMENT -1 0`; do
+			POS=`expr match ${DRIVES_LIST[$i]} /dev/$LVM_VG_NAME`
+			if [[ "$POS" -gt 0 ]]; then
+				lvremove "$LVM_VG_NAME/${DRIVES_LIST[$i]:$POS}"
+				unset DRIVES_LIST[$i]
+			fi
+		done
+	fi
+			
+	if [ ${#DRIVES_LIST[*]} -gt 0 ]; then
 		echo "The VM $VM_NAME used the following disks (NOT removed by $SCRIPT_NAME) :"
-		echo -e "$DRIVES_LIST"
+		for DRIVE in ${DRIVES_LIST[*]}; do
+			echo $DRIVE
+		done
 	fi
 	rm -f "$VM_DESCRIPTOR"
 	test_file "$VM_DESCRIPTOR" && fail_exit "Failed to remove descriptor $VM_DSCRIPTOR."
