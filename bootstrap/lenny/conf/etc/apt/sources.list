@@ -1,0 +1,14 @@
+# 
+# VIA Repositories
+#deb http://debian.via.ecp.fr/debian/ lenny main non-free contrib
+#deb-src http://debian.via.ecp.fr/debian/ lenny main non-free contrib
+deb http://ftp.fr.debian.org/debian/ lenny main non-free contrib
+deb-src http://ftp.fr.debian.org/debian/ lenny main non-free contrib
+
+# Security
+#deb http://security.debian.org/ lenny/updates main contrib non-free
+#deb-src http://security.debian.org/ lenny/updates main contrib non-free
+
+# Volatile
+#deb http://volatile.debian.org/debian-volatile lenny/volatile main contrib non-free
+#deb-src http://volatile.debian.org/debian-volatile lenny/volatile main contrib non-free
