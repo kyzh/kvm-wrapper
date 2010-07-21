@@ -37,19 +37,6 @@ function bs_copy_conf_dir()
 
 function bootstrap_fs()
 {
-
-	check_create_dir "$LOGDIR"
-	local LOGFILE="$LOGDIR/$VM_NAME-boostrap-`date +%Y-%m-%d-%H:%M:%S`"
-
-#    npipe="/tmp/$$-pipe.tmp"
-#    CLEANUP+=("rm -f $npipe")
-#    mknod $npipe p
-#    tee <$npipe "$LOGFILE" &
-#    exec 1>&-
-#    exec 1>$npipe
-
-# well - this or { ... } |tee -a "$LOGFILE" - but you loose environment there, so this sucks. gotta cut it in about five pieces and it's ugly :P
-
 	test_file "$BOOTSTRAP_KERNEL" || fail_exit "Couldn't find bootstrap kernel : $BOOTSTRAP_KERNEL"
 	test_file "$BOOTSTRAP_INITRD" || fail_exit "Couldn't find bootstrap initrd : $BOOTSTRAP_INITRD"
 
@@ -58,10 +45,8 @@ function bootstrap_fs()
 	local DISKDEV=$1
 	local PARTDEV=$1
 
-	local rootdev="LABEL=rootdev"
-	local swapdev
-	local swapuuid
-
+	local rootdev="/dev/hda"
+	
 	if [[ "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then
 		if [[ -n "$SWAP_SIZE" ]]; then
 	   		sfdisk -D -H 255 -S 63 -uM --Linux "$DISKDEV" <<EOF
@@ -74,16 +59,11 @@ EOF
 EOF
 		fi
 		PARTDEV=`map_disk $DISKDEV`
-
-		if [[ -n "$SWAP_SIZE" ]]; then
-			swapdev="${PARTDEV:0:$((${#PARTDEV}-1))}2"
-			swap_uuid=`mkswap $swapdev|grep -o -e 'UUID=.*'`
-		fi
-
+		rootdev="/dev/hda1"
 		CLEANUP+=("unmap_disk $DISKDEV")
 	fi
 
-	mkfs.ext3 -L rootdev "$PARTDEV"
+	mkfs.ext3 "$PARTDEV"
 	
 	mount "$PARTDEV" "$MNTDIR"
 	
@@ -127,7 +107,7 @@ EOF
 		find "$BOOTSTRAP_CACHE" -mtime +15 -exec rm {} \;
 		if ! test_file_rw "$BOOTSTRAP_CACHE"; then
 			echo "Debootstrap cache either absent or to old : building a new one ..."
-			eval debootstrap --make-tarball "$BOOTSTRAP_CACHE" --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_REPOSITORY"
+			eval debootstrap --arch i386 --make-tarball "$BOOTSTRAP_CACHE" --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_REPOSITORY"
 		fi
 		if test_file "$BOOTSTRAP_CACHE"; then
 			echo "Using debootstrap cache : $BOOTSTRAP_CACHE"
@@ -138,7 +118,7 @@ EOF
 	fi
 
 	# Now build our destination
-	eval debootstrap "$DEBOOTSTRAP_CACHE_OPTION" --foreign --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_REPOSITORY"
+	eval debootstrap --arch i386 "$DEBOOTSTRAP_CACHE_OPTION" --foreign --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_REPOSITORY"
 
 	# init script to be run on first VM boot
 	local BS_FILE="$MNTDIR/bootstrap-init.sh"
@@ -154,16 +134,17 @@ echo "do_initrd = Yes" >> /etc/kernel-img.conf
 /debootstrap/debootstrap --second-stage
 mount -nt proc proc /proc
 
-echo -e '\n\n\n'
-
-{
 EOF
 
 	if [[ "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then
 		cat >> "$BS_FILE" << EOF
-/usr/sbin/grub-install /dev/[vh]da
+/usr/sbin/grub-install /dev/hda
 /usr/sbin/update-grub
 EOF
+	fi
+
+	if [[ -n "$SWAP_SIZE" ]]; then
+		echo "mkswap /dev/hda2" >> "$BS_FILE"
 	fi
 
 	if [[ -n "$BOOTSTRAP_FIRSTRUN_COMMAND" ]]; then
@@ -171,9 +152,9 @@ EOF
 	fi
 
 	cat >> "$BS_FILE" << EOF
+aptitude update
 
 echo "Bootstrap ended, halting"
-} | /usr/bin/tee -a /var/log/bootstrap.log
 exec /sbin/init 0
 EOF
 
@@ -183,35 +164,28 @@ EOF
 		eval "$BOOTSTRAP_PRERUN_COMMAND"
 	fi
 
+
 	# umount
 	sync
 	umount "$MNTDIR"
 
 	# Start VM to debootstrap, second stage
 	desc_update_setting "KVM_NETWORK_MODEL" "virtio"
-	desc_update_setting "KVM_DRIVE_IF" "virtio"
 	desc_update_setting "KVM_KERNEL" "$BOOTSTRAP_KERNEL"
 	desc_update_setting "KVM_INITRD" "$BOOTSTRAP_INITRD"
 	desc_update_setting "KVM_APPEND" "root=$rootdev ro init=/bootstrap-init.sh"
-	
-
 	kvm_start_vm "$VM_NAME"
-
-	sync	
+	
 	mount "$PARTDEV" "$MNTDIR"
-	sync
-
-	cat "$MNTDIR/var/log/bootstrap.log" >> "$LOGFILE"
-
-{
+	
 	rm "$BS_FILE"
 	
 	# Copy some files/configuration from host
 	bs_copy_from_host /etc/hosts
 	bs_copy_from_host /etc/resolv.conf
-	bs_copy_from_host /etc/timezone
+  echo "Europe/Paris" > "$MNTDIR/etc/hostname"
 	bs_copy_from_host /etc/localtime
-	bs_copy_from_host /etc/apt/sources.list
+  
 
 	echo "$VM_NAME" > "$MNTDIR/etc/hostname"
 	# Custom files
@@ -225,8 +199,8 @@ proc		/proc	proc	defaults			0	0
 sysfs		/sys	sysfs	defaults			0	0
 EOF
 	
-	if [[ -n "$swap_uuid" ]]; then
-		echo "$swap_uuid		none	swap	sw	0	0" >> "$MNTDIR/etc/fstab"
+	if [[ -n "$SWAP_SIZE" && "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then
+		echo "/dev/hda2		none	swap	sw	0	0" >> "$MNTDIR/etc/fstab"
 	fi
 
 
@@ -255,7 +229,7 @@ EOF
 	if [[ -n "$BOOTSTRAP_FINALIZE_COMMAND" ]]; then
 		eval "$BOOTSTRAP_FINALIZE_COMMAND"
 	fi
-	
+
 	sync
 
 	desc_update_setting "KVM_APPEND" "root=$rootdev ro"
@@ -265,6 +239,6 @@ EOF
 		desc_remove_setting "KVM_INITRD"
 		desc_remove_setting "KVM_APPEND"
 	fi
-} | tee -a "$LOGFILE"
+	
 }
 
