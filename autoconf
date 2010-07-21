@@ -1,2 +1,76 @@
 # This is the script that autoconfigures the vm descriptor.
 # You can use the desc_update_setting-like functions and $VM_NAME
+
+IP=`host $VM_NAME|head -n 1|grep -o -e "[0-9.]*$"`
+
+if [[ -n "$IP" ]]; then 
+	echo "Found IP: $IP"
+	desc_update_setting "BOOTSTRAP_NET_ADDR" "$IP"
+	VLAN=`echo $IP|sed -e 's/.*\.\([0-9]*\)\.[0-9]*$/\1/'`
+
+	case "$VLAN" in
+		7) 
+			echo "set bridge to br_7, gateway: 138.195.7.1, netmask: 255.255.255.0"
+			desc_update_setting "KVM_BRIDGE" "br_7"
+			desc_update_setting "BOOTSTRAP_NET_GW" "138.195.7.1"
+			desc_update_setting "BOOTSTRAP_NET_MASK" "255.255.255.0"
+			desc_update_setting "BOOTSTRAP_NET_NW" "138.195.7.0"
+			;;
+		[8-9])
+			echo "set bridge to br_8, gateway: 138.195.8.1, netmask: 255.255.254.0"
+			desc_update_setting "KVM_BRIDGE" "br_8"
+			desc_update_setting "BOOTSTRAP_NET_GW" "138.195.8.1"
+			desc_update_setting "BOOTSTRAP_NET_MASK" "255.255.254.0"
+			desc_update_setting "BOOTSTRAP_NET_NW" "138.195.8.0"
+			;;
+		3[0-1])
+			echo "set bridge to br_30, gateway: 138.195.30.1, netmask: 255.255.254.0"
+			desc_update_setting "KVM_BRIDGE" "br_30"
+			desc_update_setting "BOOTSTRAP_NET_GW" "138.195.30.1"
+			desc_update_setting "BOOTSTRAP_NET_MASK" "255.255.254.0"
+			desc_update_setting "BOOTSTRAP_NET_NW" "138.195.30.0"
+			;;
+		3[2-3])
+			echo "set bridge to br_32, gateway: 138.195.32.1, netmask: 255.255.254.0"
+			desc_update_setting "KVM_BRIDGE" "br_32"
+			desc_update_setting "BOOTSTRAP_NET_GW" "138.195.32.1"
+			desc_update_setting "BOOTSTRAP_NET_MASK" "255.255.254.0"
+			desc_update_setting "BOOTSTRAP_NET_NW" "138.195.32.0"
+			;;
+		3[4-5])
+			echo "set bridge to br_34, gateway: 138.195.34.1, netmask: 255.255.254.0"
+			desc_update_setting "KVM_BRIDGE" "br_34"
+			desc_update_setting "BOOTSTRAP_NET_GW" "138.195.34.1"
+			desc_update_setting "BOOTSTRAP_NET_MASK" "255.255.254.0"
+			desc_update_setting "BOOTSTRAP_NET_NW" "138.195.34.0"
+			;;
+		3[6-7])
+			echo "set bridge to br_36, gateway: 138.195.36.1, netmask: 255.255.254.0"
+			desc_update_setting "KVM_BRIDGE" "br_36"
+			desc_update_setting "BOOTSTRAP_NET_GW" "138.195.36.1"
+			desc_update_setting "BOOTSTRAP_NET_MASK" "255.255.254.0"
+			desc_update_setting "BOOTSTRAP_NET_NW" "138.195.36.0"
+			;;
+		6[6-7])
+			echo "set bridge to br_66, gateway: 138.195.66.1, netmask: 255.255.254.0"
+			desc_update_setting "KVM_BRIDGE" "br_66"
+			desc_update_setting "BOOTSTRAP_NET_GW" "138.195.66.1"
+			desc_update_setting "BOOTSTRAP_NET_MASK" "255.255.254.0"
+			desc_update_setting "BOOTSTRAP_NET_NW" "138.195.66.0"
+			;;
+		*)
+			echo "Could not find the right BRIDGE to use, please update the configuration yourself"
+			echo "VM creation will continue normally afterwards"
+			read
+			kvm_edit_descriptor "$VM_NAME"
+	esac
+	
+	
+	desc_update_setting "LVM_LV_NAME" "$VM_NAME"
+	desc_update_setting "BOOTSTRAP_PRERUN_COMMAND" "bs_copy_from_host /root/create_accounts.sh; bs_copy_from_host '/etc/apt/sources.list'"
+	desc_update_setting "BOOTSTRAP_FIRSTRUN_COMMAND" "passwd; sh /root/create_accounts.sh; aptitude clean; aptitude update"
+	#desc_update_setting "BOOTSTRAP_FINALIZE_COMMAND" ""
+else
+	echo "Could not find $VM_NAME's IP, aborting!"
+	kvm_remove "$VM_NAME"
+fi
