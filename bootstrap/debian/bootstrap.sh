@@ -13,7 +13,7 @@ fi
 ### Configuration
 BOOTSTRAP_LINUX_IMAGE="linux-image-$ARCH_SUFFIX"
 BOOTSTRAP_REPOSITORY="http://ftp.fr.debian.org/debian/"
-BOOTSTRAP_FLAVOR="lenny"
+#BOOTSTRAP_FLAVOR=${BOOTSTRAP_FLAVOR:-lenny}
 BOOTSTRAP_EXTRA_PKGSS="vim-nox,htop,screen,less,bzip2,bash-completion,locate,acpid,bind9-host,openssh-server,$BOOTSTRAP_LINUX_IMAGE"
 if [[ "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then
 	BOOTSTRAP_EXTRA_PKGSS+=",grub"
@@ -21,7 +21,7 @@ fi
 BOOTSTRAP_CONF_DIR="$BOOTSTRAP_DIR/$BOOTSTRAP_DISTRIB/conf"
 BOOTSTRAP_KERNEL="$BOOT_IMAGES_DIR/vmlinuz-$ARCH_SUFFIX"
 BOOTSTRAP_INITRD="$BOOT_IMAGES_DIR/initrd.img-$ARCH_SUFFIX"
-BOOTSTRAP_CACHE="$CACHE_DIR/$BOOTSTRAP_DISTRIB-debootstrap.tar"
+BOOTSTRAP_CACHE="$CACHE_DIR/$BOOTSTRAP_FLAVOR-debootstrap.tar"
 ### 
 
 function bs_copy_from_host()
@@ -124,10 +124,10 @@ EOF
 	# Debootstrap cache
 	local DEBOOTSTRAP_CACHE_OPTION=""
 	if [[ -n "$BOOTSTRAP_CACHE" ]]; then
-		find "$BOOTSTRAP_CACHE" -mtime +15 -exec rm {} \;
+		test_file_rw "$BOOTSTRAP_CACHE" && find "$BOOTSTRAP_CACHE" -mtime +15 -exec rm {} \;
 		if ! test_file_rw "$BOOTSTRAP_CACHE"; then
 			echo "Debootstrap cache either absent or to old : building a new one ..."
-			eval debootstrap --arch i386 --make-tarball "$BOOTSTRAP_CACHE" --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_REPOSITORY"
+			eval debootstrap --arch i386 --make-tarball "$BOOTSTRAP_CACHE" --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_REPOSITORY" || true
 		fi
 		if test_file "$BOOTSTRAP_CACHE"; then
 			echo "Using debootstrap cache : $BOOTSTRAP_CACHE"
@@ -144,6 +144,7 @@ EOF
 	local BS_FILE="$MNTDIR/bootstrap-init.sh"
 	cat > "$BS_FILE" << EOF
 #!/bin/sh
+export PATH="/usr/sbin:/usr/bin:/sbin:/bin"
 mount -no remount,rw /
 cat /proc/mounts
 
@@ -189,7 +190,7 @@ EOF
 
 	# Start VM to debootstrap, second stage
 	desc_update_setting "KVM_NETWORK_MODEL" "virtio"
-	desc_update_setting "KVM_DRIVE_IF" "virtio"
+#	desc_update_setting "KVM_DRIVE_IF" "virtio"
 	desc_update_setting "KVM_KERNEL" "$BOOTSTRAP_KERNEL"
 	desc_update_setting "KVM_INITRD" "$BOOTSTRAP_INITRD"
 	desc_update_setting "KVM_APPEND" "root=$rootdev ro init=/bootstrap-init.sh"
