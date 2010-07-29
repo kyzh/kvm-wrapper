@@ -93,38 +93,10 @@ EOF
 	echo
 	echo
 
-#	FIXME: should be removed anytime soon
-#	# Now debootstrap, first stage (do not configure), or decompress cache for this.
-#	# First we check if the cache is too old.
-#	if [[ -n "$BOOTSTRAP_CACHE" && -f "$BOOTSTRAP_CACHE" ]]; then
-#		find "$BOOTSTRAP_CACHE" -mtime +15 -exec rm {} \;
-#	    if [[ ! -f "$BOOTSTRAP_CACHE" ]]; then
-#			echo "Debootstrap cache $BOOTSTRAP_CACHE is too old and has been removed."
-#			echo "Generating a new one instead"
-#		fi
-#	fi
-#
-#	if [[ -f "$BOOTSTRAP_CACHE" ]]; then
-#		echo "Decompressing $BOOTSTRAP_CACHE - if you changed anything to debootstrap arguments, please remove this file"
-#		echo "It is automatically removed if it is more than two weeks old."
-#		cd "$MNTDIR"
-#		tar xf "$BOOTSTRAP_CACHE"
-#		cd - > /dev/null
-#	else
-#		debootstrap --foreign --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_REPOSITORY"
-#		if [[ -n "$BOOTSTRAP_CACHE" ]]; then
-#			echo "Building cache file $BOOTSTRAP_CACHE."
-#			cd "$MNTDIR"
-#			tar cf "$BOOTSTRAP_CACHE" .
-#			cd - > /dev/null
-#		fi
-#	fi
-#
-
 	# Debootstrap cache
 	local DEBOOTSTRAP_CACHE_OPTION=""
 	if [[ -n "$BOOTSTRAP_CACHE" ]]; then
-		test_file_rw && find "$BOOTSTRAP_CACHE" -mtime +15 -exec rm {} \;
+		test_file_rw "$BOOTSTRAP_CACHE" && find "$BOOTSTRAP_CACHE" -mtime +15 -exec rm {} \;
 		if ! test_file_rw "$BOOTSTRAP_CACHE"; then
 			echo "Debootstrap cache either absent or to old : building a new one ..."
 			eval debootstrap --make-tarball "$BOOTSTRAP_CACHE" --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_REPOSITORY" || true
@@ -144,6 +116,8 @@ EOF
 	local BS_FILE="$MNTDIR/bootstrap-init.sh"
 	cat > "$BS_FILE" << EOF
 #!/bin/sh
+
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 mount -no remount,rw /
 cat /proc/mounts
 
