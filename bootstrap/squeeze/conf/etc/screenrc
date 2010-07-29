@@ -1,0 +1,5 @@
+bell_msg ''
+term 'screen'
+vbell off
+defscrollback 10000
+
