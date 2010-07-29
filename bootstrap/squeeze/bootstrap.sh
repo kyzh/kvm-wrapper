@@ -13,7 +13,7 @@ fi
 ### Configuration
 BOOTSTRAP_LINUX_IMAGE="linux-image-$ARCH_SUFFIX"
 BOOTSTRAP_REPOSITORY="http://ftp.fr.debian.org/debian/"
-BOOTSTRAP_FLAVOR="${BOOTSTRAP_FLAVOR:-lenny}"
+BOOTSTRAP_FLAVOR="${BOOTSTRAP_FLAVOR:-squeeze}"
 BOOTSTRAP_EXTRA_PKGSS="vim-nox,htop,screen,less,bzip2,bash-completion,locate,acpid,bind9-host,openssh-server,locales,$BOOTSTRAP_LINUX_IMAGE"
 if [[ "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then
 	BOOTSTRAP_EXTRA_PKGSS+=",grub"
@@ -137,26 +137,24 @@ EOF
 		fi
 	fi
 
+	mkdir -p "$MNTDIR/usr/sbin/"
+	echo "exit 101" >  "$MNTDIR/usr/sbin/policy-rc.d"
+	chmod +x "$MNTDIR/usr/sbin/policy-rc.d"
+
 	# Now build our destination
-	eval debootstrap "$DEBOOTSTRAP_CACHE_OPTION" --foreign --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_REPOSITORY"
+	eval debootstrap "$DEBOOTSTRAP_CACHE_OPTION" --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_REPOSITORY"
+
+	rm "$MNTDIR/usr/sbin/policy-rc.d"
 
 	# init script to be run on first VM boot
 	local BS_FILE="$MNTDIR/bootstrap-init.sh"
 	cat > "$BS_FILE" << EOF
 #!/bin/sh
 mount -no remount,rw /
-cat /proc/mounts
-
-# Fix for linux-image module which isn't handled correctly by debootstrap
-touch /vmlinuz /initrd.img
-echo "do_initrd = Yes" >> /etc/kernel-img.conf
-
-/debootstrap/debootstrap --second-stage
-mount -nt proc proc /proc
-
-echo -e '\n\n\n'
 
 {
+/usr/sbin/locale-gen
+
 EOF
 
 	if [[ "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then
@@ -183,29 +181,7 @@ EOF
 		eval "$BOOTSTRAP_PRERUN_COMMAND"
 	fi
 
-	# umount
-	sync
-	umount "$MNTDIR"
 
-	# Start VM to debootstrap, second stage
-	desc_update_setting "KVM_NETWORK_MODEL" "virtio"
-	desc_update_setting "KVM_DRIVE_IF" "virtio"
-	desc_update_setting "KVM_KERNEL" "$BOOTSTRAP_KERNEL"
-	desc_update_setting "KVM_INITRD" "$BOOTSTRAP_INITRD"
-	desc_update_setting "KVM_APPEND" "root=$rootdev ro init=/bootstrap-init.sh"
-	
-
-	kvm_start_vm "$VM_NAME"
-
-	sync	
-	mount "$PARTDEV" "$MNTDIR"
-	sync
-
-	cat "$MNTDIR/var/log/bootstrap.log" >> "$LOGFILE"
-
-{
-	rm "$BS_FILE"
-	
 	# Copy some files/configuration from host
 	bs_copy_from_host /etc/hosts
 	bs_copy_from_host /etc/resolv.conf
@@ -251,12 +227,30 @@ EOF
 iface eth0 inet dhcp
 EOF
 	fi
-	
-	if [[ -n "$BOOTSTRAP_FINALIZE_COMMAND" ]]; then
-		eval "$BOOTSTRAP_FINALIZE_COMMAND"
-	fi
-	
+		
+	# umount
 	sync
+	umount "$MNTDIR"
+
+	# Start VM to debootstrap, second stage
+	desc_update_setting "KVM_NETWORK_MODEL" "virtio"
+	desc_update_setting "KVM_DRIVE_IF" "virtio"
+	desc_update_setting "KVM_KERNEL" "$BOOTSTRAP_KERNEL"
+	desc_update_setting "KVM_INITRD" "$BOOTSTRAP_INITRD"
+	desc_update_setting "KVM_APPEND" "root=$rootdev ro init=/bootstrap-init.sh"
+	
+
+	kvm_start_vm "$VM_NAME"
+
+	sync	
+	mount "$PARTDEV" "$MNTDIR"
+	sync
+
+	cat "$MNTDIR/var/log/bootstrap.log" >> "$LOGFILE"
+
+{
+	rm "$BS_FILE"
+	
 
 	desc_update_setting "KVM_APPEND" "root=$rootdev ro"
 
@@ -265,6 +259,13 @@ EOF
 		desc_remove_setting "KVM_INITRD"
 		desc_remove_setting "KVM_APPEND"
 	fi
+
+	if [[ -n "$BOOTSTRAP_FINALIZE_COMMAND" ]]; then
+		eval "$BOOTSTRAP_FINALIZE_COMMAND"
+	fi
+
+	sync
+
 } 2>&1 | tee -a "$LOGFILE"
 }
 

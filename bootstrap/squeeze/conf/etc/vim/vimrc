@@ -1,0 +1,48 @@
+"
+" Configuration file for vim
+"
+
+set modelines=0		" CVE-2007-2438
+
+" Normally we use vim-extensions. If you want true vi-compatibility
+" remove change the following statements
+set nocompatible	" Use Vim defaults instead of 100% vi compatibility
+set backspace=2		" more powerful backspacing
+
+" Don't write backup file if vim is being called by "crontab -e"
+au BufWrite /private/tmp/crontab.* set nowritebackup
+" Don't write backup file if vim is being called by "chpass"
+au BufWrite /private/etc/pw.* set nowritebackup
+
+" Syntax / colorscheme
+syntax on
+colorscheme delek
+
+" Indentation
+set autoindent
+
+" Tab size
+set ts=4
+set shiftwidth=4
+
+" Status bar
+set ruler
+set laststatus=2
+set statusline=%<%f%h%m%r%=%l,%c\ %P
+
+" Vim commands completion
+set wildmode=list:full
+
+" Disable backup
+set nobackup nowritebackup
+" Search highlighting
+set hlsearch
+
+" Wrap cursor at end/begining of line
+set whichwrap=<,>,[,]
+" Always keep one visible line below the cursor
+set scrolloff=1
+
+" Map # to split long lines (72 columns). Doesn't justify
+map # :%! fmt -s -w 72
+
