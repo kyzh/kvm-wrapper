@@ -34,6 +34,12 @@ function fail_exit ()
 }
 
 # FS node testers
+function test_exist ()
+{
+	local NODE="$1"
+	[[ -e "$NODE" ]]
+}
+
 function test_dir ()
 {
 	local DIR="$1"
@@ -137,7 +143,10 @@ function kvm_init_env ()
 	PID_FILE="$PID_DIR/$VM_NAME-vm.pid"
 	MONITOR_FILE="$MONITOR_DIR/$VM_NAME.unix"
 	SERIAL_FILE="$SERIAL_DIR/$VM_NAME.unix"
-	SCREEN_SESSION_NAME="kvm-$VM_NAME"
+	
+	local vmnamehash=$(echo $VM_NAME|md5sum)
+	vmnamehash=${vmnamehash:0:5}
+	SCREEN_SESSION_NAME="kvm-$VM_NAME-$vmnamehash"
 
 	test_file "$VM_DESCRIPTOR" || fail_exit "Couldn't open VM $VM_NAME descriptor :\n$VM_DESCRIPTOR"
 	source "$VM_DESCRIPTOR"
@@ -216,7 +225,7 @@ function lvm_create_disk ()
 	LVM_LV_NAME="${LVM_LV_NAME:-"vm.$VM_NAME"}"
 	local LVM_LV_SIZE=$(($ROOT_SIZE+${SWAP_SIZE:-0}))
 
-	eval "$LVM_LVCREATE_BIN --name $LVM_LV_NAME --size $LVM_LV_SIZE $LVM_VG_NAME"
+	eval "$LVM_LVCREATE_BIN --name $LVM_LV_NAME --size $LVM_LV_SIZE $LVM_VG_NAME $LVM_PV_NAME"
 	desc_update_setting "KVM_DISK1" "/dev/$LVM_VG_NAME/$LVM_LV_NAME"
 }
 
@@ -254,6 +263,24 @@ function lvm_umount_disk()
 	rmdir "/mnt/$VM_NAME"
 	unmap_disk "$KVM_DISK1"
 	set +e
+}
+
+# Change perms. Meant to run forked.
+function serial_perms_forked()
+{
+	while [[ ! -e "$SERIAL_FILE" ]];
+	do
+		! ps "$$"  >& /dev/null && return
+		sleep 1
+	done
+	if [[ -n "$SERIAL_USER" ]]; then
+		chown "$SERIAL_USER" "$SERIAL_FILE"
+		chmod 600 "$SERIAL_FILE"
+	fi
+	if [[ -n "$SERIAL_GROUP" ]]; then
+		chgrp "$SERIAL_GROUP" "$SERIAL_FILE"
+		chmod g+rw "$SERIAL_FILE"
+	fi
 }
 
 # VM descriptor helpers
@@ -351,6 +378,7 @@ function kvm_start_vm ()
 
 	# Build KVM Drives (hdd, cdrom) parameters
 	local KVM_DRIVES=""
+	KVM_DRIVE_IF="${KVM_DRIVE_IF:-ide}"
 	[[ -n "$KVM_DISK1" ]] && KVM_DRIVES="$KVM_DRIVES -drive file=\"$KVM_DISK1\",if=$KVM_DRIVE_IF,boot=on"
 	[[ -n "$KVM_DISK2" ]] && KVM_DRIVES="$KVM_DRIVES -drive file=\"$KVM_DISK2\",if=$KVM_DRIVE_IF,boot=on"
 	[[ -n "$KVM_DISK3" ]] && KVM_DRIVES="$KVM_DRIVES -drive file=\"$KVM_DISK3\",if=$KVM_DRIVE_IF,boot=on"
@@ -382,6 +410,9 @@ function kvm_start_vm ()
 	rm -rf "$SERIAL_FILE"
 	test_socket "$MONITOR_FILE" && fail_exit "Monitor socket $MONITOR_FILE already existing and couldn't be removed"
 	test_socket "$SERIAL_FILE" && fail_exit "Serial socket $SERIAL_FILE already existing and couldn't be removed"
+
+	# Fork change_perms
+	[[ -n "$SERIAL_USER" ]] || [[ -n "$SERIAL_GROUP" ]] && serial_perms_forked &
 
 
 	# Now run kvm
@@ -494,7 +525,7 @@ function kvm_serial ()
 {
 	kvm_init_env "$1"
 
-	! test_file "$PID_FILE" && fail_exit "Error : $VM_NAME doesn't seem to be running."
+	! test_exist "$PID_FILE" && fail_exit "Error : $VM_NAME doesn't seem to be running."
 	! test_socket_rw "$SERIAL_FILE" && fail_exit "Error : could not open serial socket $SERIAL_FILE."
 	echo "Attaching serial console unix socket (using socat). Press ^] to exit"
 	socat -,IGNBRK=0,BRKINT=0,PARMRK=0,ISTRIP=0,INLCR=0,IGNCR=0,ICRNL=0,IXON=0,OPOST=1,ECHO=0,ECHONL=0,ICANON=0,ISIG=0,IEXTEN=0,CSIZE=0,PARENB=0,CS8,escape=0x1d unix:"$SERIAL_FILE"
