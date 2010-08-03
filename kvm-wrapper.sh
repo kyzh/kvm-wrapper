@@ -140,7 +140,6 @@ function kvm_init_env ()
 {
 	VM_NAME="$1"
 	VM_DESCRIPTOR="$VM_DIR/$VM_NAME-vm"
-	PID_FILE="$PID_DIR/$VM_NAME-vm.pid"
 	MONITOR_FILE="$MONITOR_DIR/$VM_NAME.unix"
 	SERIAL_FILE="$SERIAL_DIR/$VM_NAME.unix"
 	
@@ -148,8 +147,11 @@ function kvm_init_env ()
 	vmnamehash=${vmnamehash:0:5}
 	SCREEN_SESSION_NAME="kvm-$VM_NAME-$vmnamehash"
 
+	unset PID_FILE
 	test_file "$VM_DESCRIPTOR" || fail_exit "Couldn't open VM $VM_NAME descriptor :\n$VM_DESCRIPTOR"
 	source "$VM_DESCRIPTOR"
+	PID_FILE=${PID_FILE:-"$PID_DIR/${KVM_CLUSTER_NODE:-`hostname -s`}:$VM_NAME-vm.pid"}
+
 }
 
 function random_mac ()
@@ -560,11 +562,11 @@ function kvm_list ()
 	echo "Available VM descriptors :"
 	for file in "$VM_DIR"/*-vm
 	do
-		VM_NAME=`basename "${file%"-vm"}"`
+		kvm_init_env `basename "${file%"-vm"}"`
 		local VM_STATUS="Halted"
-		PID_FILE="$PID_DIR/$VM_NAME-vm.pid"
-		test_file "$PID_FILE" && VM_STATUS=$(test_pid `cat "$PID_FILE"` && echo "Running" || echo "Error!")
-		echo -e "$VM_STATUS\t\t$VM_NAME"
+#		test_file "$PID_FILE" && VM_STATUS=$(test_pid `cat "$PID_FILE"` && echo "Running" || echo "Error!")
+		test_file "$PID_FILE" && VM_STATUS="Running"
+		echo -e "$VM_STATUS\ton ${KVM_CLUSTER_NODE:-localhost}\t\t$VM_NAME"
 	done
 }
 
@@ -873,7 +875,7 @@ esac
 kvm_init_env "${!#}"
 
 [[ -n "$KVM_CLUSTER_NODE" 
-	&& "$KVM_CLUSTER_NODE" != "`hostname`" 
+	&& "$KVM_CLUSTER_NODE" != "`hostname -s`" 
 	&& -n "`get_cluster_host $KVM_CLUSTER_NODE`" ]] \
 	&& run_remote $@
 
