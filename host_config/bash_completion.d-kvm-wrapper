@@ -1,0 +1,66 @@
+# kvm-wrapper completion
+
+have kvm-wrapper &&
+_kvm-wrapper()
+{
+    local cur prev vms
+
+    COMPREPLY=()
+    cur=`_get_cword`
+    prev=${COMP_WORDS[COMP_CWORD-1]}
+
+    if [[ "$cur" == -* ]]; then
+        COMPREPLY=( $( compgen -W 'start stop list screen create bootstrap remove edit create-disk status' -- "$cur" ) )
+        return 0
+    fi
+
+    case "$prev" in
+        list)
+            return 0
+            ;;
+        help)
+            COMPREPLY=( $( compgen -W "create" -- "$cur" ) )
+            return 0
+            ;;
+        create)
+#            COMPREPLY=( $( compgen -W '-m --mem -s --size -e --edit -c --cpu' -- "$cur" ) )
+            return 0
+            ;;
+    esac
+    local KVMWRAPPER_DIR=/usr/share/kvm-wrapper
+    . $KVMWRAPPER_DIR/kvm-wrapper.conf >&/dev/null #complains random_mac isn't defined, but doesn't matter to us...
+    case "$prev" in
+        start|screen|bootstrap|create-disk|remove)
+			if [[ -n "`ls -1 $PID_DIR/*-vm.pid 2>/dev/null`" ]]; then 
+	            vms=`ls -1 $KVMWRAPPER_DIR/vm/*-vm|sed -e "s:$KVMWRAPPER_DIR/vm/::g" -e 's/-vm//g'|grep -v -F $(ls -1 $PID_DIR/*-vm.pid|sed -e "s:$PID_DIR/::g" -e 's/-vm.pid//g')`
+			else
+	            vms=`ls -1 $KVMWRAPPER_DIR/vm/*-vm|sed -e "s:$KVMWRAPPER_DIR/vm/::g" -e 's/-vm//g'`
+			fi
+   	        COMPREPLY=( $( compgen -W "$vms" -- "$cur" ) )
+       	    return 0
+            ;;
+        stop|status)
+            vms=`ls -1 $PID_DIR/*-vm.pid 2>/dev/null |sed -e "s:$PID_DIR/::g" -e 's/-vm.pid//g'`
+            COMPREPLY=( $( compgen -W "$vms" -- "$cur" ) )
+            return 0
+            ;;
+        edit)
+            vms=`ls -1 $KVMWRAPPER_DIR/vm/*-vm|sed -e "s:$KVMWRAPPER_DIR/vm/::g" -e 's/-vm//g'`
+            COMPREPLY=( $( compgen -W "$vms" -- "$cur" ) )
+            return 0
+            ;;
+    esac
+
+   _expand || return 0
+
+    COMPREPLY=( $( compgen -W 'help start stop list screen create bootstrap remove edit create-disk status' -- "$cur" ) )
+} &&
+complete -F _kvm-wrapper $filenames kvm-wrapper
+
+# Local variables:
+# mode: shell-script
+# sh-basic-offset: 4
+# sh-indent-comment: t
+# indent-tabs-mode: nil
+# End:
+# ex: ts=4 sw=4 et filetype=sh

@@ -167,6 +167,30 @@ local MACADDRESS="52:54:00:ff""$STR"
 echo -ne $MACADDRESS
 }
 
+# cluster helpers
+hash_string ()
+{
+	echo "$1"|md5sum|awk '{print $1}'
+}
+
+set_cluster_host ()
+{
+	eval KVM_CLUSTER_HOSTS_`hash_string $1`="$2"
+}
+
+get_cluster_host ()
+{
+	eval echo '${KVM_CLUSTER_HOSTS_'`hash_string "$1"`'}'
+}
+
+run_remote ()
+{
+	require_exec ssh
+	SSH_OPTS=${SSH_OPTS:-"-t"}
+	[[ -n "$KVM_CLUSTER_IDENT" ]] && SSH_OPTS+=" -i $KVM_CLUSTER_IDENT"
+	ssh $SSH_OPTS "`get_cluster_host $KVM_CLUSTER_NODE`" $ROOTDIR/kvm-wrapper.sh $@
+	exit $?
+}
 # NBD helpers
 function nbd_img_link ()
 {
@@ -432,8 +456,6 @@ function kvm_start_vm ()
 
 function kvm_stop_vm ()
 {
-	kvm_init_env "$1"
-
 	test_file "$PID_FILE" || fail_exit "VM $VM_NAME doesn't seem to be running.\nPID file $PID_FILE not found"
 #	test_socket_rw "$MONITOR_FILE" || fail_exit "Monitor socket $MONITOR_FILE not existing or not writable"
 
@@ -498,7 +520,6 @@ function kvm_run_disk ()
 
 function kvm_start_screen ()
 {
-	kvm_init_env "$1"
 	screen -d -m -S "$SCREEN_SESSION_NAME" /bin/sh -c "\"$SCRIPT_PATH\" start \"$VM_NAME\""
 	return $?
 }
@@ -799,14 +820,65 @@ test_file "$CONFFILE" || fail_exit "Couldn't open kvm-wrapper's configuration fi
 # Load default configuration file
 source "$CONFFILE"
 
+test_file "$CLUSTER_CONF" && source "$CLUSTER_CONF"
+
 # Check VM descriptor directory
 test_dir "$VM_DIR" || fail_exit "Couldn't open VM descriptor directory :\n$VM_DIR"
 
-# Argument parsing
+
 case "$1" in
 	list)
 		kvm_list
+		exit 0
 		;;
+	rundisk)
+		if [[ $# -eq 2 ]]; then
+		    kvm_run_disk "$2"
+		else print_help; fi
+		exit 0
+		;;
+	status)
+        if [[ -n "$2" ]]; then 
+            kvm_status "$2"
+        else kvm_status "all"; fi
+		exit 0
+		;;
+	edit)
+		if [[ $# -eq 2 ]]; then
+		    kvm_edit_descriptor "$2"
+		else print_help; fi
+		exit 0
+		;;
+	create-desc*)
+		if [[ $# -ge 2 ]]; then
+			kvm_create_descriptor "$2" "$3" "$4"
+		else print_help; fi
+		exit 0
+		;;
+	create|build)
+		if [[ $# -ge 2 ]]; then
+			shift
+			kvm_build_vm $@
+		else print_help; fi
+		exit 0
+		;;
+	remove)
+		if [[ $# -eq 2 ]]; then
+		    kvm_remove "$2"
+		else print_help; fi
+		exit 0
+		;;
+esac
+
+kvm_init_env "${!#}"
+
+[[ -n "$KVM_CLUSTER_NODE" 
+	&& "$KVM_CLUSTER_NODE" != "`hostname`" 
+	&& -n "`get_cluster_host $KVM_CLUSTER_NODE`" ]] \
+	&& run_remote $@
+
+# Argument parsing
+case "$1" in
 	start)
 		if [[ $# -eq 2 ]]; then
 		    kvm_start_vm "$2"
@@ -837,37 +909,6 @@ case "$1" in
 		    kvm_stop_vm "$2"
 		else print_help; fi
 		;;
-	rundisk)
-		if [[ $# -eq 2 ]]; then
-		    kvm_run_disk "$2"
-		else print_help; fi
-		;;
-	status)
-        if [[ -n "$2" ]]; then 
-            kvm_status "$2"
-        else kvm_status "all"; fi
-		;;
-	edit)
-		if [[ $# -eq 2 ]]; then
-		    kvm_edit_descriptor "$2"
-		else print_help; fi
-		;;
-	create-desc*)
-		if [[ $# -ge 2 ]]; then
-			kvm_create_descriptor "$2" "$3" "$4"
-		else print_help; fi
-		;;
-	create|build)
-		if [[ $# -ge 2 ]]; then
-			shift
-			kvm_build_vm $@
-		else print_help; fi
-		;;
-	remove)
-		if [[ $# -eq 2 ]]; then
-		    kvm_remove "$2"
-		else print_help; fi
-		;;
 	bootstrap)
 		if [[ $# -ge 2 ]]; then
 		    kvm_bootstrap_vm "$2" "$3"
@@ -890,5 +931,4 @@ case "$1" in
 		print_help
 		;;
 esac
-
 
