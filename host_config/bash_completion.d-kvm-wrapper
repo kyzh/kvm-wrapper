@@ -27,25 +27,25 @@ _kvm-wrapper()
             return 0
             ;;
     esac
-    local KVMWRAPPER_DIR=/usr/share/kvm-wrapper
-    . $KVMWRAPPER_DIR/kvm-wrapper.conf >&/dev/null #complains random_mac isn't defined, but doesn't matter to us...
+    local ROOTDIR=/usr/share/kvm-wrapper
+    . $ROOTDIR/kvm-wrapper.conf >&/dev/null #complains random_mac isn't defined, but doesn't matter to us...
     case "$prev" in
         start|screen|bootstrap|create-disk|remove)
 			if [[ -n "`ls -1 $PID_DIR/*-vm.pid 2>/dev/null`" ]]; then 
-	            vms=`ls -1 $KVMWRAPPER_DIR/vm/*-vm|sed -e "s:$KVMWRAPPER_DIR/vm/::g" -e 's/-vm//g'|grep -v -F $(ls -1 $PID_DIR/*-vm.pid|sed -e "s:$PID_DIR/::g" -e 's/-vm.pid//g')`
+	            vms=`ls -1 $ROOTDIR/vm/*-vm|sed -e "s:$ROOTDIR/vm/::g" -e 's/-vm//g'|grep -v -F "$(ls -1 $PID_DIR/*-vm.pid|sed -e "s@$PID_DIR/.*:@@g" -e 's/-vm.pid//g')"`
 			else
-	            vms=`ls -1 $KVMWRAPPER_DIR/vm/*-vm|sed -e "s:$KVMWRAPPER_DIR/vm/::g" -e 's/-vm//g'`
+	            vms=`ls -1 $ROOTDIR/vm/*-vm|sed -e "s:$ROOTDIR/vm/::g" -e 's/-vm//g'`
 			fi
    	        COMPREPLY=( $( compgen -W "$vms" -- "$cur" ) )
        	    return 0
             ;;
         stop|status)
-            vms=`ls -1 $PID_DIR/*-vm.pid 2>/dev/null |sed -e "s:$PID_DIR/::g" -e 's/-vm.pid//g'`
+            vms=`ls -1 $PID_DIR/*-vm.pid 2>/dev/null |sed -e "s@$PID_DIR/.*:@@g" -e 's/-vm.pid//g'`
             COMPREPLY=( $( compgen -W "$vms" -- "$cur" ) )
             return 0
             ;;
         edit)
-            vms=`ls -1 $KVMWRAPPER_DIR/vm/*-vm|sed -e "s:$KVMWRAPPER_DIR/vm/::g" -e 's/-vm//g'`
+            vms=`ls -1 $ROOTDIR/vm/*-vm|sed -e "s:$ROOTDIR/vm/::g" -e 's/-vm//g'`
             COMPREPLY=( $( compgen -W "$vms" -- "$cur" ) )
             return 0
             ;;
