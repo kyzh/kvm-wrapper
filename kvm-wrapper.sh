@@ -106,6 +106,12 @@ function test_exec ()
 	[[ -x "$FILE" && -r "$FILE" ]]
 }
 
+function test_nodename ()
+{
+	local NODE="$1"
+	[[ -n "$NODE" && "$NODE" != "`hostname -s`" && -n "`get_cluster_host $NODE`" ]]
+}
+
 function require_exec ()
 {
 	test_exec "$(which $1)" || fail_exit "$1 not found or not executable"
@@ -190,8 +196,7 @@ run_remote ()
 	require_exec ssh
 	SSH_OPTS=${SSH_OPTS:-"-t"}
 	[[ -n "$KVM_CLUSTER_IDENT" ]] && SSH_OPTS+=" -i $KVM_CLUSTER_IDENT"
-	ssh $SSH_OPTS "`get_cluster_host $KVM_CLUSTER_NODE`" $ROOTDIR/kvm-wrapper.sh $@
-	exit $?
+	ssh $SSH_OPTS "`get_cluster_host $KVM_CLUSTER_NODE`" $@
 }
 # NBD helpers
 function nbd_img_link ()
@@ -361,18 +366,18 @@ function monitor_send_sysrq ()
 }
 
 # VM Status
-function status_from_pid_file ()
+function kvm_status_from_pid
 {
-	local VM_PID=`cat "$1"`
-	ps wwp "$VM_PID"
+	local VM_PID=$@
+	test_nodename "$KVM_CLUSTER_NODE" && run_remote ps wwp "$VM_PID" || ps wwp "$VM_PID"
 }
 
 function kvm_status_vm ()
 {
-	VM_NAME="$1"
-	PID_FILE="$PID_DIR/$VM_NAME-vm.pid"
+	kvm_init_env "$1"
 	test_file "$PID_FILE" || fail_exit "Error : $VM_NAME doesn't seem to be running."
-	status_from_pid_file "$PID_FILE"
+
+	kvm_status_from_pid `cat "$PID_FILE"`
 }
 
 function kvm_status ()
@@ -381,11 +386,10 @@ function kvm_status ()
 	then
 		kvm_status_vm "$1"
 	else
-		for file in "$PID_DIR"/*-vm.pid
+		for KVM_CLUSTER_NODE in `ls -1 $PID_DIR/*-vm.pid|cut -d: -f1|sed -e 's:.*/::'|uniq`
 		do
-			VM_NAME=`basename ${file%"-vm.pid"}`
-			echo $VM_NAME :
-			status_from_pid_file "$file"
+			echo "servers on $KVM_CLUSTER_NODE:"
+			kvm_status_from_pid `cat $PID_DIR/$KVM_CLUSTER_NODE\:*-vm.pid`
 		done
 	fi
 }
@@ -874,10 +878,7 @@ esac
 
 kvm_init_env "${!#}"
 
-[[ -n "$KVM_CLUSTER_NODE" 
-	&& "$KVM_CLUSTER_NODE" != "`hostname -s`" 
-	&& -n "`get_cluster_host $KVM_CLUSTER_NODE`" ]] \
-	&& run_remote $@
+test_nodename "$KVM_CLUSTER_NODE" && (run_remote $ROOTDIR/kvm-wrapper.sh $@; exit $!)
 
 # Argument parsing
 case "$1" in
