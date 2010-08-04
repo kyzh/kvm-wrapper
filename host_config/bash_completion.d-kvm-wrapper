@@ -32,7 +32,7 @@ _kvm-wrapper()
     case "$prev" in
         start|screen|bootstrap|create-disk|remove)
 			if [[ -n "`ls -1 $PID_DIR/*-vm.pid 2>/dev/null`" ]]; then 
-	            vms=`ls -1 $ROOTDIR/vm/*-vm|sed -e "s:$ROOTDIR/vm/::g" -e 's/-vm//g'|grep -v -F "$(ls -1 $PID_DIR/*-vm.pid|sed -e "s@$PID_DIR/.*:@@g" -e 's/-vm.pid//g')"`
+	            vms=`ls -1 $ROOTDIR/vm/*-vm|sed -e "s:$ROOTDIR/vm/::g" -e 's/-vm//g'|grep -v -x -F "$(ls -1 $PID_DIR/*-vm.pid|sed -e "s@$PID_DIR/.*:@@g" -e 's/-vm.pid//g')"`
 			else
 	            vms=`ls -1 $ROOTDIR/vm/*-vm|sed -e "s:$ROOTDIR/vm/::g" -e 's/-vm//g'`
 			fi
