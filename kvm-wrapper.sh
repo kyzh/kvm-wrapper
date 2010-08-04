@@ -193,10 +193,12 @@ get_cluster_host ()
 
 run_remote ()
 {
+	HOST="`get_cluster_host $1`"
+	shift
 	require_exec ssh
 	SSH_OPTS=${SSH_OPTS:-"-t"}
 	[[ -n "$KVM_CLUSTER_IDENT" ]] && SSH_OPTS+=" -i $KVM_CLUSTER_IDENT"
-	ssh $SSH_OPTS "`get_cluster_host $KVM_CLUSTER_NODE`" $@
+	ssh $SSH_OPTS "$HOST" $@
 }
 # NBD helpers
 function nbd_img_link ()
@@ -335,9 +337,15 @@ function desc_update_setting ()
 	local KEY="$1"
 	local VALUE="$2"
 
-	#sed -i "s/^$KEY.*/$KEY=$(escape_sed "\"$VALUE\"") ###AUTO/g" "$VM_DESCRIPTOR"
-	sed -i "/^$KEY.*/d" "$VM_DESCRIPTOR"
-	echo "$KEY=\"$VALUE\" ###AUTO" >> "$VM_DESCRIPTOR"
+	local MATCH="^#*$KEY"
+	local NEW="$KEY=\"$VALUE\""
+	sed -i -e "0,/$MATCH/ {
+		s@$MATCH=\?\(.*\)@$NEW ## \1@g
+		$ t
+		$ a$NEW
+		}" "$VM_DESCRIPTOR"
+	#sed -i "/^$KEY.*/d" "$VM_DESCRIPTOR"
+	#echo "$KEY=\"$VALUE\" ###AUTO" >> "$VM_DESCRIPTOR"
 }
 
 # Revert descriptor setting modified by this script
@@ -369,7 +377,7 @@ function monitor_send_sysrq ()
 function kvm_status_from_pid
 {
 	local VM_PID=$@
-	test_nodename "$KVM_CLUSTER_NODE" && run_remote ps wwp "$VM_PID" || ps wwp "$VM_PID"
+	test_nodename "$NODE" && run_remote $NODE ps wwp "$VM_PID" || ps wwp "$VM_PID"
 }
 
 function kvm_status_vm ()
@@ -386,10 +394,10 @@ function kvm_status ()
 	then
 		kvm_status_vm "$1"
 	else
-		for KVM_CLUSTER_NODE in `ls -1 $PID_DIR/*-vm.pid|cut -d: -f1|sed -e 's:.*/::'|uniq`
+		for NODE in `ls -1 $PID_DIR/*-vm.pid|cut -d: -f1|sed -e 's:.*/::'|uniq`
 		do
-			echo "servers on $KVM_CLUSTER_NODE:"
-			kvm_status_from_pid `cat $PID_DIR/$KVM_CLUSTER_NODE\:*-vm.pid`
+			echo "servers on $NODE:"
+			kvm_status_from_pid `cat $PID_DIR/$NODE\:*-vm.pid`
 		done
 	fi
 }
@@ -878,7 +886,7 @@ esac
 
 kvm_init_env "${!#}"
 
-test_nodename "$KVM_CLUSTER_NODE" && (run_remote $ROOTDIR/kvm-wrapper.sh $@; exit $!)
+test_nodename "$KVM_CLUSTER_NODE" && (run_remote $KVM_CLUSTER_NODE $ROOTDIR/kvm-wrapper.sh $@; exit $!)
 
 # Argument parsing
 case "$1" in
