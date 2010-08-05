@@ -15,9 +15,7 @@ KVM_VM_LIST="$KVM_WRAPPER_DIR"/startup/startup-list
 start_vm()
 {
 	VM_NAME="$1"
-#	SCREEN_SESSION_NAME="kvm-$VM_NAME"
 	log_begin_msg "Starting up VM : $VM_NAME ..."
-#	screen -d -m -S "$SCREEN_SESSION_NAME" /bin/sh -c "\"$KVM_WRAPPER\" start \"$VM_NAME\""
 	$KVM_WRAPPER screen "$VM_NAME"
 	EXITNUM="$?"
 	echo $EXITNUM
