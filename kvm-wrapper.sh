@@ -145,6 +145,7 @@ function wait_test_timelimit ()
 function kvm_init_env ()
 {
 	VM_NAME="$1"
+	KVM_CLUSTER_NODE=local
 	VM_DESCRIPTOR="$VM_DIR/$VM_NAME-vm"
 	MONITOR_FILE="$MONITOR_DIR/$VM_NAME.unix"
 	SERIAL_FILE="$SERIAL_DIR/$VM_NAME.unix"
@@ -886,7 +887,7 @@ esac
 
 kvm_init_env "${!#}"
 
-test_nodename "$KVM_CLUSTER_NODE" && (run_remote $KVM_CLUSTER_NODE $ROOTDIR/kvm-wrapper.sh $@; exit $!)
+test_nodename "$KVM_CLUSTER_NODE" && { run_remote $KVM_CLUSTER_NODE $ROOTDIR/kvm-wrapper.sh $@; exit $?; }
 
 # Argument parsing
 case "$1" in
