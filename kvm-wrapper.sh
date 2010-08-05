@@ -631,9 +631,11 @@ function kvm_create_descriptor ()
 		local HDA_LINE="KVM_DISK1=\"$KVM_IMG_DISKNAME\""
 		sed -i "s,##KVM_DISK1,$HDA_LINE,g" "$VM_DESCRIPTOR"
 	fi
-	local MAC_ADDR="`random_mac`"
-	sed -i 's/`random_mac`/'"$MAC_ADDR/g" "$VM_DESCRIPTOR"
-	sed -i 's/#KVM_MAC/KVM_MAC/g' "$VM_DESCRIPTOR"
+
+	sed -i 's/#KVM_MACADDRESS="`random_mac`/KVM_MACADDRESS="'`random_mac`'/g' "$VM_DESCRIPTOR"
+	sed -i 's/#KVM_CLUSTER_NODE="`hostname -s`/KVM_CLUSTER_NODE="'`hostname -s`'/g' "$VM_DESCRIPTOR"
+	
+
 
 	echo "VM $VM_NAME created. Descriptor : $VM_DESCRIPTOR"
 }
