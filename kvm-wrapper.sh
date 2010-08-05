@@ -424,7 +424,7 @@ function kvm_start_vm ()
 	[[ -n "$KVM_DISK4" ]] && KVM_DRIVES="$KVM_DRIVES -drive file=\"$KVM_DISK4\",if=$KVM_DRIVE_IF,boot=on"
 	
 	[[ -n "$KVM_CDROM" ]] && KVM_DRIVES="$KVM_DRIVES -cdrom \"$KVM_CDROM\""
-	[[ "$KVM_DRIVES" == "" ]] && fail_exit "Your VM $VM_NAME should at least use one cdrom or harddisk drive !\nPlease check your conf file :\n$VM_DESCRIPTOR"
+	[[ "$KVM_DRIVES" == "" ]] && [[ "$KVM_BOOTDEVICE" != "n" ]] && fail_exit "Your VM $VM_NAME should at least use one cdrom or harddisk drive !\nPlease check your conf file :\n$VM_DESCRIPTOR"
 	local LINUXBOOT=""
 	[[ -n "$KVM_KERNEL" ]] && LINUXBOOT="$LINUXBOOT -kernel \"$KVM_KERNEL\""
 	[[ -n "$KVM_INITRD" ]] && LINUXBOOT="$LINUXBOOT -initrd \"$KVM_INITRD\""

@@ -39,7 +39,7 @@ _kvm-wrapper()
    	        COMPREPLY=( $( compgen -W "$vms" -- "$cur" ) )
        	    return 0
             ;;
-        stop|status)
+        stop|status|attach)
             vms=`ls -1 $PID_DIR/*-vm.pid 2>/dev/null |sed -e "s@$PID_DIR/.*:@@g" -e 's/-vm.pid//g'`
             COMPREPLY=( $( compgen -W "$vms" -- "$cur" ) )
             return 0
@@ -53,7 +53,7 @@ _kvm-wrapper()
 
    _expand || return 0
 
-    COMPREPLY=( $( compgen -W 'help start stop list screen create bootstrap remove edit create-disk status' -- "$cur" ) )
+    COMPREPLY=( $( compgen -W 'help attach start stop list screen create bootstrap remove edit create-disk status' -- "$cur" ) )
 } &&
 complete -F _kvm-wrapper $filenames kvm-wrapper
 
