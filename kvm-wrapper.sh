@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # KVM Wrapper Script
 # -- bencoh, 2009/06
@@ -149,7 +149,8 @@ function kvm_init_env ()
 	VM_DESCRIPTOR="$VM_DIR/$VM_NAME-vm"
 	MONITOR_FILE="$MONITOR_DIR/$VM_NAME.unix"
 	SERIAL_FILE="$SERIAL_DIR/$VM_NAME.unix"
-	
+	SCREENLOG="$LOGDIR/screenlog-$VM_NAME.log"
+
 	local vmnamehash=$(echo $VM_NAME|md5sum)
 	vmnamehash=${vmnamehash:0:5}
 	SCREEN_SESSION_NAME="kvm-$VM_NAME-$vmnamehash"
@@ -157,7 +158,7 @@ function kvm_init_env ()
 	unset PID_FILE
 	test_file "$VM_DESCRIPTOR" || fail_exit "Couldn't open VM $VM_NAME descriptor :\n$VM_DESCRIPTOR"
 	source "$VM_DESCRIPTOR"
-	PID_FILE=${PID_FILE:-"$PID_DIR/${KVM_CLUSTER_NODE:-`hostname -s`}:$VM_NAME-vm.pid"}
+	PID_FILE=${PID_FILE:-"$PID_DIR/${KVM_CLUSTER_NODE:-*}:$VM_NAME-vm.pid"}
 
 }
 
@@ -283,6 +284,7 @@ function lvm_mount_disk()
 
 	test_file "$PID_FILE" && fail_exit "VM $VM_NAME seems to be running! (PID file $PID_FILE exists)\nYou cannot mount disk on a running VM"
 
+	echo "Attempting to mount first partition of $KVM_DISK1"
 	PART=`map_disk "$KVM_DISK1"`
 	mkdir -p "/mnt/$VM_NAME"
 	mount "$PART" "/mnt/$VM_NAME"
@@ -293,6 +295,7 @@ function lvm_umount_disk()
 {
 	set -e
 	kvm_init_env "$1"
+	echo "unmounting $KVM_DISK1"
 	umount "/mnt/$VM_NAME" 
 	rmdir "/mnt/$VM_NAME"
 	unmap_disk "$KVM_DISK1"
@@ -419,9 +422,9 @@ function kvm_start_vm ()
 	local KVM_DRIVES=""
 	KVM_DRIVE_IF="${KVM_DRIVE_IF:-ide}"
 	[[ -n "$KVM_DISK1" ]] && KVM_DRIVES="$KVM_DRIVES -drive file=\"$KVM_DISK1\",if=$KVM_DRIVE_IF,boot=on"
-	[[ -n "$KVM_DISK2" ]] && KVM_DRIVES="$KVM_DRIVES -drive file=\"$KVM_DISK2\",if=$KVM_DRIVE_IF,boot=on"
-	[[ -n "$KVM_DISK3" ]] && KVM_DRIVES="$KVM_DRIVES -drive file=\"$KVM_DISK3\",if=$KVM_DRIVE_IF,boot=on"
-	[[ -n "$KVM_DISK4" ]] && KVM_DRIVES="$KVM_DRIVES -drive file=\"$KVM_DISK4\",if=$KVM_DRIVE_IF,boot=on"
+	[[ -n "$KVM_DISK2" ]] && KVM_DRIVES="$KVM_DRIVES -drive file=\"$KVM_DISK2\",if=$KVM_DRIVE_IF"
+	[[ -n "$KVM_DISK3" ]] && KVM_DRIVES="$KVM_DRIVES -drive file=\"$KVM_DISK3\",if=$KVM_DRIVE_IF"
+	[[ -n "$KVM_DISK4" ]] && KVM_DRIVES="$KVM_DRIVES -drive file=\"$KVM_DISK4\",if=$KVM_DRIVE_IF"
 	
 	[[ -n "$KVM_CDROM" ]] && KVM_DRIVES="$KVM_DRIVES -cdrom \"$KVM_CDROM\""
 	[[ "$KVM_DRIVES" == "" ]] && [[ "$KVM_BOOTDEVICE" != "n" ]] && fail_exit "Your VM $VM_NAME should at least use one cdrom or harddisk drive !\nPlease check your conf file :\n$VM_DESCRIPTOR"
@@ -535,8 +538,22 @@ function kvm_run_disk ()
 
 function kvm_start_screen ()
 {
-	screen -d -m -S "$SCREEN_SESSION_NAME" /bin/sh -c "\"$SCRIPT_PATH\" start \"$VM_NAME\""
-	return $?
+	screen $SCREEN_ARGS -S "$SCREEN_SESSION_NAME" "$SCRIPT_PATH" start-here "$VM_NAME"
+
+}
+
+function kvm_start_here_screen ()
+{
+	check_create_dir "$LOGDIR"
+	rm -f "$SCREENLOG"
+	screen -x "$SCREEN_SESSION_NAME" -X logfile "$SCREENLOG"
+	screen -x "$SCREEN_SESSION_NAME" -X log
+	{
+		grep -m 1 'kvm' <(tail -f "$SCREENLOG") >/dev/null
+		screen -x "$SCREEN_SESSION_NAME" -X log
+	}&
+	sleep 1
+	kvm_start_vm "$VM_NAME"
 }
 
 function kvm_attach_screen ()
@@ -579,7 +596,7 @@ function kvm_list ()
 		local VM_STATUS="Halted"
 #		test_file "$PID_FILE" && VM_STATUS=$(test_pid `cat "$PID_FILE"` && echo "Running" || echo "Error!")
 		test_file "$PID_FILE" && VM_STATUS="Running"
-		echo -e "$VM_STATUS\ton ${KVM_CLUSTER_NODE:-localhost}\t\t$VM_NAME"
+		printf "\t%-20s\t$VM_STATUS\ton ${KVM_CLUSTER_NODE:-local}\n" "$VM_NAME"
 	done
 }
 
@@ -663,6 +680,7 @@ function kvm_bootstrap_vm ()
 	require_exec "kpartx"
 	check_create_dir "$BOOT_IMAGES_DIR"
 	check_create_dir "$CACHE_DIR"
+	check_create_dir "$LOGDIR"
 
 	kvm_init_env "$1"
 	test_file "$PID_FILE" && fail_exit "Error : $VM_NAME seems to be running. Please stop it before trying to bootstrap it."
@@ -674,7 +692,6 @@ function kvm_bootstrap_vm ()
 	test_file "$BOOTSTRAP_SCRIPT" || fail_exit "Couldn't read $BOOTSTRAP_SCRIPT to bootstrap $VM_NAME as $BOOTSTRAP_DISTRIB"
 	source "$BOOTSTRAP_SCRIPT"
 	
-	#test_blockdev "$BOOTSTRAP_DEVICE" || fail_exit "Sorry, kvm-wrapper can only bootstrap blockdevices yet."
 	if ! test_blockdev "$KVM_DISK1"
 	then
 		require_exec "$KVM_NBD_BIN"
@@ -879,10 +896,9 @@ case "$1" in
 		else print_help; fi
 		exit 0
 		;;
-	remove)
-		if [[ $# -eq 2 ]]; then
-		    kvm_remove "$2"
-		else print_help; fi
+	help)
+		shift
+		print_help $@
 		exit 0
 		;;
 esac
@@ -893,13 +909,30 @@ test_nodename "$KVM_CLUSTER_NODE" && { run_remote $KVM_CLUSTER_NODE $ROOTDIR/kvm
 
 # Argument parsing
 case "$1" in
+	remove)
+		if [[ $# -eq 2 ]]; then
+		    kvm_remove "$2"
+		else print_help; fi
+		;;
 	start)
+		if [[ $# -eq 2 ]]; then
+			SCREEN_ARGS=""
+			kvm_start_screen "$2"
+		else print_help; fi
+		;;
+	start-here)
 		if [[ $# -eq 2 ]]; then
 		    kvm_start_vm "$2"
 		else print_help; fi
 		;;
+	start-here-screen)
+		if [[ $# -eq 2 ]]; then
+		    kvm_start_here_screen "$2"
+		else print_help; fi
+		;;
 	screen)
 		if [[ $# -eq 2 ]]; then
+			SCREEN_ARGS="-d -m"
 		    kvm_start_screen "$2"
 		else print_help; fi
 		;;
@@ -936,10 +969,6 @@ case "$1" in
 		;;
 	umount-disk)
 		lvm_umount_disk "$2"
-		;;
-	help)
-		shift
-		print_help $@
 		;;
 	*)
 		print_help
