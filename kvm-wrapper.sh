@@ -820,25 +820,28 @@ function print_help ()
 	echo
 	echo -e "Flags are :"
 	echo -e "   -m size, --mem size:    Specify how much RAM you want the system to have"
-	echo -e "   -s size, --size size:   Specify how big the disk should be"
+	echo -e "   -s size, --size size:   Specify how big the disk should be in MB"
 	echo -e "   -e, --edit:             If you want to edit the descriptor after autoconfiguration"
 	echo -e "   -c num, --cpu num:      Number of cpu the system should have"
+	echo -e "   --swap size:            Size of the swap in MB"
 	echo
 	echo -e " More to come ?"
 	;;
 		*)
 	echo -e "Usage: $SCRIPT_NAME {start|screen|stop} virtual-machine"
 	echo -e "       $SCRIPT_NAME {attach|monitor|serial} virtual-machine"
-	echo -e "       $SCRIPT_NAME rundisk disk-image"
+	echo -e "       $SCRIPT_NAME {save-state|load-state} virtual-machine"
+	echo -e "       $SCRIPT_NAME migrate dest-node virtual-machine"
 	echo -e ""
 	echo -e "       $SCRIPT_NAME status [virtual-machine]"
 	echo -e "       $SCRIPT_NAME list"
 	echo
+	echo -e "       $SCRIPT_NAME balloon target_RAM virtual-machine"
 	echo -e "       $SCRIPT_NAME create [flags] virtual-machine #for flag list, try $SCRIPT_NAME help create"
-	echo -e "       $SCRIPT_NAME create-disk virtual-machine [diskimage [size]]"
-	echo -e "       $SCRIPT_NAME bootstrap virtual-machine distribution"
-	echo -e "       $SCRIPT_NAME remove virtual-machine"
+	echo -e "       $SCRIPT_NAME create-desc virtual-machine [diskimage [size]]"
+	echo -e "       $SCRIPT_NAME bootstrap virtual-machine"
 	echo -e "       $SCRIPT_NAME edit virtual-machine"
+	echo -e "       $SCRIPT_NAME remove virtual-machine"
 	;;
 	esac
 	exit 2
