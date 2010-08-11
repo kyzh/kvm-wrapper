@@ -200,6 +200,7 @@ run_remote ()
 	require_exec ssh
 	SSH_OPTS=${SSH_OPTS:-"-t"}
 	[[ -n "$KVM_CLUSTER_IDENT" ]] && SSH_OPTS+=" -i $KVM_CLUSTER_IDENT"
+	echo ssh $SSH_OPTS "$HOST" $@
 	ssh $SSH_OPTS "$HOST" $@
 }
 # NBD helpers
@@ -255,8 +256,6 @@ function lvm_create_disk ()
 {
 	require_exec "$LVM_LVCREATE_BIN"
 
-	kvm_init_env "$1"
-
 	LVM_LV_NAME="${LVM_LV_NAME:-"vm.$VM_NAME"}"
 	local LVM_LV_SIZE=$(($ROOT_SIZE+${SWAP_SIZE:-0}))
 
@@ -280,7 +279,6 @@ function unmap_disk()
 function lvm_mount_disk()
 {
 	set -e
-	kvm_init_env "$1"
 
 	test_file "$PID_FILE" && fail_exit "VM $VM_NAME seems to be running! (PID file $PID_FILE exists)\nYou cannot mount disk on a running VM"
 
@@ -294,7 +292,6 @@ function lvm_mount_disk()
 function lvm_umount_disk()
 {
 	set -e
-	kvm_init_env "$1"
 	echo "unmounting $KVM_DISK1"
 	umount "/mnt/$VM_NAME" 
 	rmdir "/mnt/$VM_NAME"
@@ -409,8 +406,6 @@ function kvm_status ()
 # Main function : start a virtual machine
 function kvm_start_vm ()
 {
-	kvm_init_env "$1"
-
 	check_create_dir "$PID_DIR"
 	check_create_dir "$MONITOR_DIR"
 	check_create_dir "$SERIAL_DIR"
@@ -444,18 +439,19 @@ function kvm_start_vm ()
 	KVM_SERIALDEV="-serial unix:$SERIAL_FILE,server,nowait"
 
 	# Build kvm exec string
-	local EXEC_STRING="$KVM_BIN -name $VM_NAME -m $KVM_MEM -smp $KVM_CPU_NUM -net nic,model=$KVM_NETWORK_MODEL,macaddr=$KVM_MACADDRESS -net $KVM_NET_TAP $KVM_DRIVES -boot $KVM_BOOTDEVICE -k $KVM_KEYMAP $KVM_OUTPUT $LINUXBOOT $KVM_MONITORDEV $KVM_SERIALDEV -pidfile $PID_FILE $KVM_ADDITIONNAL_PARAMS"
+	local EXEC_STRING="$KVM_BIN -name $VM_NAME -m $KVM_MEM -smp $KVM_CPU_NUM -net nic,model=$KVM_NETWORK_MODEL,macaddr=$KVM_MACADDRESS -net $KVM_NET_TAP $KVM_DRIVES -boot $KVM_BOOTDEVICE $KVM_KEYMAP $KVM_OUTPUT $LINUXBOOT $KVM_MONITORDEV $KVM_SERIALDEV -pidfile $PID_FILE $KVM_ADDITIONNAL_PARAMS"
 
 	# More sanity checks : VM running, monitor socket existing, etc.
-	test_file "$PID_FILE" && fail_exit "VM $VM_NAME seems to be running already.\nPID file $PID_FILE exists"
-	rm -rf "$MONITOR_FILE"
-	rm -rf "$SERIAL_FILE"
-	test_socket "$MONITOR_FILE" && fail_exit "Monitor socket $MONITOR_FILE already existing and couldn't be removed"
-	test_socket "$SERIAL_FILE" && fail_exit "Serial socket $SERIAL_FILE already existing and couldn't be removed"
+	if [[ -z "$FORCE" ]]; then
+		test_file "$PID_FILE" && fail_exit "VM $VM_NAME seems to be running already.\nPID file $PID_FILE exists"
+		rm -rf "$MONITOR_FILE"
+		rm -rf "$SERIAL_FILE"
+		test_socket "$MONITOR_FILE" && fail_exit "Monitor socket $MONITOR_FILE already existing and couldn't be removed"	
+		test_socket "$SERIAL_FILE" && fail_exit "Serial socket $SERIAL_FILE already existing and couldn't be removed"
 
-	# Fork change_perms
-	[[ -n "$SERIAL_USER" ]] || [[ -n "$SERIAL_GROUP" ]] && serial_perms_forked &
-
+		# Fork change_perms
+		[[ -n "$SERIAL_USER" ]] || [[ -n "$SERIAL_GROUP" ]] && serial_perms_forked &
+	fi
 
 	# Now run kvm
 	echo $EXEC_STRING
@@ -467,6 +463,9 @@ function kvm_start_vm ()
 	rm -rf "$PID_FILE"
 	rm -rf "$MONITOR_FILE"
 	rm -rf "$SERIAL_FILE"
+
+	# Hang till user input - for screen
+	read
 
 	# Exit
 	return 0
@@ -530,7 +529,7 @@ function kvm_run_disk ()
 	test_file_rw "$KVM_DISK1" || "Couldn't read/write image file :\n$KVM_DISK1"
 
 	# Build kvm exec string
-	local EXEC_STRING="$KVM_BIN -net nic,model=$KVM_NETWORK_MODEL,macaddr=$KVM_MACADDRESS -net tap -hda $KVM_DISK1 -boot c -k $KVM_KEYMAP $KVM_OUTPUT $KVM_ADDITIONNAL_PARAMS"
+	local EXEC_STRING="$KVM_BIN -net nic,model=$KVM_NETWORK_MODEL,macaddr=$KVM_MACADDRESS -net tap -hda $KVM_DISK1 -boot c $KVM_KEYMAP $KVM_OUTPUT $KVM_ADDITIONNAL_PARAMS"
 	eval "$EXEC_STRING"
 
 	return 0
@@ -539,7 +538,7 @@ function kvm_run_disk ()
 function kvm_start_screen ()
 {
 	screen $SCREEN_ARGS -S "$SCREEN_SESSION_NAME" "$SCRIPT_PATH" start-here "$VM_NAME"
-
+	sleep 1
 }
 
 function kvm_start_here_screen ()
@@ -558,15 +557,12 @@ function kvm_start_here_screen ()
 
 function kvm_attach_screen ()
 {
-	kvm_init_env "$1"
 	! test_file "$PID_FILE" && fail_exit "Error : $VM_NAME doesn't seem to be running."
 	screen -x "$SCREEN_SESSION_NAME"
 }
 
 function kvm_monitor ()
 {
-	kvm_init_env "$1"
-
 	! test_file "$PID_FILE" && fail_exit "Error : $VM_NAME doesn't seem to be running."
 	! test_socket_rw "$MONITOR_FILE" && fail_exit "Error : could not open monitor socket $MONITOR_FILE."
 	echo "Attaching monitor unix socket (using socat). Press ^D (EOF) to exit"
@@ -576,8 +572,6 @@ function kvm_monitor ()
 
 function kvm_serial ()
 {
-	kvm_init_env "$1"
-
 	! test_exist "$PID_FILE" && fail_exit "Error : $VM_NAME doesn't seem to be running."
 	! test_socket_rw "$SERIAL_FILE" && fail_exit "Error : could not open serial socket $SERIAL_FILE."
 	echo "Attaching serial console unix socket (using socat). Press ^] to exit"
@@ -769,6 +763,8 @@ function kvm_build_vm ()
 		kvm_edit_descriptor "$VM_NAME"
 	fi
 
+	kvm_init_env "$VM_NAME"
+
 	lvm_create_disk "$VM_NAME"
 	kvm_bootstrap_vm "$VM_NAME"
 
@@ -778,10 +774,15 @@ function kvm_build_vm ()
 	kvm_attach_screen "$VM_NAME"
 }
 
+function kvm_balloon_vm ()
+{
+	! test_file "$PID_FILE" && fail_exit "Error : $VM_NAME doesn't seem to be running."
+	! test_socket_rw "$MONITOR_FILE" && fail_exit "Error : could not open monitor socket $MONITOR_FILE."
+	monitor_send_cmd "balloon $1"
+}
+
 function kvm_remove ()
 {
-
-	kvm_init_env "$1"
 
 	test_file "$PID_FILE" && fail_exit "Error : $VM_NAME seems to be running. Please stop it before trying to remove it."
 
@@ -871,12 +872,6 @@ case "$1" in
 		else print_help; fi
 		exit 0
 		;;
-	status)
-        if [[ -n "$2" ]]; then 
-            kvm_status "$2"
-        else kvm_status "all"; fi
-		exit 0
-		;;
 	edit)
 		if [[ $# -eq 2 ]]; then
 		    kvm_edit_descriptor "$2"
@@ -914,26 +909,81 @@ case "$1" in
 		    kvm_remove "$2"
 		else print_help; fi
 		;;
+	migrate)
+		if [[ $# -eq 3 ]]; then
+			! test_file "$PID_FILE" && fail_exit "Error : $VM_NAME doesn't seem to be running."
+			! test_socket_rw "$MONITOR_FILE" && fail_exit "Error : could not open monitor socket $MONITOR_FILE."
+			desc_update_setting "KVM_CLUSTER_NODE" "$2"
+			"$SCRIPT_PATH" receive-migrate-screen "$3"
+			sleep 1
+#			monitor_send_cmd "migrate exec: ssh -i $KVM_CLUSTER_IDENT \"`get_cluster_host $2`\" \"socat - unix:$RUN_DIR/migrate-$3.sock\""
+			monitor_send_cmd "migrate tcp:`get_cluster_host $2`:4444"
+			monitor_send_cmd "quit"
+		else print_help; fi
+		;;
+	receive-migrate)
+		if [[ $# -eq 2 ]]; then
+#			KVM_ADDITIONNAL_PARAMS+=" -incoming unix:$RUN_DIR/migrate-$2.sock"  
+			KVM_ADDITIONNAL_PARAMS+=" -incoming tcp:0:4444"  
+			FORCE="yes"
+			kvm_start_vm "$2"
+		else print_help; fi
+		;;
+	receive-migrate-screen)
+		if [[ $# -eq 2 ]]; then
+			screen -d -m -S "$SCREEN_SESSION_NAME" "$SCRIPT_PATH" receive-migrate "$VM_NAME"
+			sleep 1
+		else print_help; fi
+		;;
+	save-state)
+		if [[ $# -eq 2 ]]; then
+			! test_file "$PID_FILE" && fail_exit "Error : $VM_NAME doesn't seem to be running."
+			! test_socket_rw "$MONITOR_FILE" && fail_exit "Error : could not open monitor socket $MONITOR_FILE."
+#			monitor_send_cmd "stop"
+			monitor_send_cmd "migrate_set_speed 4095m"
+			monitor_send_cmd "migrate \"exec:gzip -c > /var/cache/kvm-wrapper/$2-state.gz\""
+			monitor_send_cmd "cont"
+		else print_help; fi
+		;;
+	load-state)
+		if [[ $# -eq 2 ]]; then
+			KVM_ADDITIONNAL_PARAMS+=" -incoming \"exec: gzip -c -d /var/cache/kvm-wrapper/$2-state.gz\""  
+			FORCE="yes"
+			kvm_start_vm "$2"
+		else print_help; fi
+		;;
+	balloon)
+		if [[ $# -eq 3 ]]; then
+			kvm_balloon_vm "$2"
+		else print_help; fi
+		;;
+	restart)
+		if [[ $# -eq 2 ]]; then
+			kvm_stop_vm "$2"
+			SCREEN_ARGS="-m"
+			kvm_start_screen "$2"
+		else print_help; fi
+		;;
 	start)
 		if [[ $# -eq 2 ]]; then
-			SCREEN_ARGS=""
+			SCREEN_ARGS="-m"
 			kvm_start_screen "$2"
 		else print_help; fi
 		;;
 	start-here)
 		if [[ $# -eq 2 ]]; then
-		    kvm_start_vm "$2"
+			kvm_start_vm "$2"
 		else print_help; fi
 		;;
 	start-here-screen)
 		if [[ $# -eq 2 ]]; then
-		    kvm_start_here_screen "$2"
+			kvm_start_here_screen "$2"
 		else print_help; fi
 		;;
 	screen)
 		if [[ $# -eq 2 ]]; then
 			SCREEN_ARGS="-d -m"
-		    kvm_start_screen "$2"
+			kvm_start_screen "$2"
 		else print_help; fi
 		;;
 	attach)
@@ -945,6 +995,12 @@ case "$1" in
 		if [[ $# -eq 2 ]]; then
 		    kvm_monitor "$2"
 		else print_help; fi
+		;;
+	status)
+        if [[ -n "$2" ]]; then 
+            kvm_status "$2"
+        else kvm_status "all"; fi
+		exit 0
 		;;
 	serial)
 		if [[ $# -eq 2 ]]; then

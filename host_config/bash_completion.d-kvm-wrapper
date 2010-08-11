@@ -30,22 +30,27 @@ _kvm-wrapper()
     local ROOTDIR=/usr/share/kvm-wrapper
     . $ROOTDIR/kvm-wrapper.conf >&/dev/null #complains random_mac isn't defined, but doesn't matter to us...
     case "$prev" in
-        start|screen|bootstrap|create-disk|remove)
-			if [[ -n "`ls -1 $PID_DIR/*-vm.pid 2>/dev/null`" ]]; then 
-	            vms=`ls -1 $ROOTDIR/vm/*-vm|sed -e "s:$ROOTDIR/vm/::g" -e 's/-vm//g'|grep -v -x -F "$(ls -1 $PID_DIR/*-vm.pid|sed -e "s@$PID_DIR/.*:@@g" -e 's/-vm.pid//g')"`
+        start|screen|bootstrap|create-disk|remove|mount-disk|load-state)
+			if [[ -n "`\ls -1 $PID_DIR/*-vm.pid 2>/dev/null`" ]]; then 
+	            vms=`\ls -1 $ROOTDIR/vm/*-vm|sed -e "s:$ROOTDIR/vm/::g" -e 's/-vm//g'|grep -v -x -F "$(\ls -1 $PID_DIR/*-vm.pid|sed -e "s@$PID_DIR/.*:@@g" -e 's/-vm.pid//g')"`
 			else
-	            vms=`ls -1 $ROOTDIR/vm/*-vm|sed -e "s:$ROOTDIR/vm/::g" -e 's/-vm//g'`
+	            vms=`\ls -1 $ROOTDIR/vm/*-vm|sed -e "s:$ROOTDIR/vm/::g" -e 's/-vm//g'`
 			fi
    	        COMPREPLY=( $( compgen -W "$vms" -- "$cur" ) )
        	    return 0
             ;;
-        stop|status|attach)
-            vms=`ls -1 $PID_DIR/*-vm.pid 2>/dev/null |sed -e "s@$PID_DIR/.*:@@g" -e 's/-vm.pid//g'`
+        stop|status|attach|migrate|save-state|balloon|monitor|serial)
+            vms=`\ls -1 $PID_DIR/*-vm.pid 2>/dev/null |sed -e "s@$PID_DIR/.*:@@g" -e 's/-vm.pid//g'`
             COMPREPLY=( $( compgen -W "$vms" -- "$cur" ) )
             return 0
             ;;
         edit)
-            vms=`ls -1 $ROOTDIR/vm/*-vm|sed -e "s:$ROOTDIR/vm/::g" -e 's/-vm//g'`
+            vms=`\ls -1 $ROOTDIR/vm/*-vm|sed -e "s:$ROOTDIR/vm/::g" -e 's/-vm//g'`
+            COMPREPLY=( $( compgen -W "$vms" -- "$cur" ) )
+            return 0
+            ;;
+		umount-disk)
+			vms=`\ls -1 /mnt|sed -e 's:/mnt/::'`
             COMPREPLY=( $( compgen -W "$vms" -- "$cur" ) )
             return 0
             ;;
@@ -53,7 +58,7 @@ _kvm-wrapper()
 
    _expand || return 0
 
-    COMPREPLY=( $( compgen -W 'help attach create-desc start stop list screen create bootstrap remove edit create-disk status' -- "$cur" ) )
+    COMPREPLY=( $( compgen -W 'help attach create-desc start stop list screen create bootstrap remove edit create-disk status mount-disk umount-disk migrate receive-migrate save-state load-state balloon monitor serial' -- "$cur" ) )
 } &&
 complete -F _kvm-wrapper $filenames kvm-wrapper
 

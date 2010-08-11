@@ -126,7 +126,7 @@ EOF
 	if [[ -n "$BOOTSTRAP_CACHE" ]]; then
 		test_file_rw && find "$BOOTSTRAP_CACHE" -mtime +15 -exec rm {} \;
 		if ! test_file_rw "$BOOTSTRAP_CACHE"; then
-			echo "Debootstrap cache either absent or to old : building a new one ..."
+			echo "Debootstrap cache either absent or too old : building a new one ..."
 			eval debootstrap --make-tarball "$BOOTSTRAP_CACHE" --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_REPOSITORY" || true
 		fi
 		if test_file "$BOOTSTRAP_CACHE"; then
@@ -239,6 +239,7 @@ EOF
 	desc_update_setting "KVM_INITRD" "$BOOTSTRAP_INITRD"
 	desc_update_setting "KVM_APPEND" "root=$rootdev ro init=/bootstrap-init.sh"
 	
+	kvm_init_env "$VM_NAME"
 
 	kvm_start_vm "$VM_NAME"
 
