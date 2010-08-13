@@ -26,11 +26,30 @@ start_vm()
 	return 0
 }
 
+stop_vm ()
+{
+	VM_NAME="$1"
+	log_begin_msg "Stopping VM : $VM_NAME ..."
+	"$KVM_WRAPPER" stop "$VM_NAME"
+	log_end_msg 0
+}
+
 do_start()
 {
+if [[ ! -f /usr/share/kvm-wrapper/kvm-wrapper.sh ]]; then
+	log_begin_msg "Mounting /usr/share/kvm-wrapper since it doesn't seem here"
+	echo
+	mount /usr/share/kvm-wrapper
+	sleep 3
+fi
+
+echo cleaning old pid files for `hostname -s`
+rm -vf /usr/share/kvm-wrapper/run/`hostname -s`*
+
 grep -E -v '^#' "$KVM_VM_LIST" |
 while read line
 do
+	pcregrep "^KVM_CLUSTER_NODE=\"?`hostname -s`" $KVM_WRAPPER_DIR/vm/$line-vm >&/dev/null && \
 	start_vm "$line"
 done
 }
@@ -40,16 +59,15 @@ do_stop()
 grep -E -v '^#' "$KVM_VM_LIST" |
 while read line
 do
-	VM_NAME="$line"
-	log_begin_msg "Stopping VM : $VM_NAME ..."
-	"$KVM_WRAPPER" stop "$VM_NAME"
-	log_end_msg 0
+	pcregrep "^KVM_CLUSTER_NODE=\"?`hostname -s`" $KVM_WRAPPER_DIR/vm/$line-vm >&/dev/null && \
+	stop_vm "$line"
 done
 }
 
 case "$1" in
   start)
 	log_begin_msg "Autostarting VMs (kvm-wrapper) ..."
+	echo
 	do_start
 	case "$?" in
 		0|1) log_end_msg 0 ;;
@@ -58,6 +76,7 @@ case "$1" in
 	;;
   stop)
 	log_begin_msg "Shutting down autostarted VMs (kvm-wrapper) ..."
+	echo
 	do_stop
 	case "$?" in
 		0|1) log_end_msg 0 ;;

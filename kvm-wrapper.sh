@@ -30,6 +30,10 @@ function fail_exit ()
 {
 	echo -e "$1"
 	echo "Exiting."
+
+	# Hang for a while - for screen
+	sleep 100
+
 	exit 1
 }
 
@@ -463,9 +467,6 @@ function kvm_start_vm ()
 	rm -rf "$PID_FILE"
 	rm -rf "$MONITOR_FILE"
 	rm -rf "$SERIAL_FILE"
-
-	# Hang till user input - for screen
-	read
 
 	# Exit
 	return 0
@@ -917,24 +918,26 @@ case "$1" in
 			! test_file "$PID_FILE" && fail_exit "Error : $VM_NAME doesn't seem to be running."
 			! test_socket_rw "$MONITOR_FILE" && fail_exit "Error : could not open monitor socket $MONITOR_FILE."
 			desc_update_setting "KVM_CLUSTER_NODE" "$2"
-			"$SCRIPT_PATH" receive-migrate-screen "$3"
+			PORT=$((RANDOM%1000+4000))
+			"$SCRIPT_PATH" receive-migrate-screen $PORT "$3"
 			sleep 1
-#			monitor_send_cmd "migrate exec: ssh -i $KVM_CLUSTER_IDENT \"`get_cluster_host $2`\" \"socat - unix:$RUN_DIR/migrate-$3.sock\""
-			monitor_send_cmd "migrate tcp:`get_cluster_host $2`:4444"
+			monitor_send_cmd "migrate_set_speed 1024m"
+#			monitor_send_cmd "migrate \"exec: ssh `get_cluster_host $2` socat - unix:$RUN_DIR/migrate-$3.sock\""
+			monitor_send_cmd "migrate tcp:`get_cluster_host $2`:$PORT"
 			monitor_send_cmd "quit"
 		else print_help; fi
 		;;
 	receive-migrate)
-		if [[ $# -eq 2 ]]; then
-#			KVM_ADDITIONNAL_PARAMS+=" -incoming unix:$RUN_DIR/migrate-$2.sock"  
-			KVM_ADDITIONNAL_PARAMS+=" -incoming tcp:0:4444"  
+		if [[ $# -eq 3 ]]; then
+#			KVM_ADDITIONNAL_PARAMS+=" -incoming unix:$RUN_DIR/migrate-$VM_NAME.sock"  
+			KVM_ADDITIONNAL_PARAMS+=" -incoming tcp:`get_cluster_host $(hostname -s)`:$2"  
 			FORCE="yes"
-			kvm_start_vm "$2"
+			kvm_start_vm "$VM_NAME"
 		else print_help; fi
 		;;
 	receive-migrate-screen)
-		if [[ $# -eq 2 ]]; then
-			screen -d -m -S "$SCREEN_SESSION_NAME" "$SCRIPT_PATH" receive-migrate "$VM_NAME"
+		if [[ $# -eq 3 ]]; then
+			screen -d -m -S "$SCREEN_SESSION_NAME" "$SCRIPT_PATH" receive-migrate "$2" "$VM_NAME"
 			sleep 1
 		else print_help; fi
 		;;
