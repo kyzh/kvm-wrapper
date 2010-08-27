@@ -795,10 +795,8 @@ function kvm_remove ()
 	if [ ${#DRIVES_LIST[*]} -gt 0 ]; then
 		LAST_ELEMENT=$((${#DRIVES_LIST[*]}-1))
 		for i in `seq $LAST_ELEMENT -1 0`; do
-			POS=`expr match ${DRIVES_LIST[$i]} /dev/$LVM_VG_NAME`
-			if [[ "$POS" -gt 0 ]]; then
-				lvremove "$LVM_VG_NAME/${DRIVES_LIST[$i]:$POS}"
-				unset DRIVES_LIST[$i]
+			if lvdisplay "${DRIVES_LIST[$i]}" >&/dev/null; then
+				lvremove "${DRIVES_LIST[$i]}"
 			fi
 		done
 	fi
