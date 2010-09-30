@@ -769,6 +769,8 @@ function kvm_build_vm ()
 	lvm_create_disk "$VM_NAME"
 	kvm_bootstrap_vm "$VM_NAME"
 
+	echo "$VM_NAME" >> "$STARTUP_LIST"
+
 	echo "Will now start VM $VM_NAME"
 	kvm_start_screen "$VM_NAME"
 	sleep 1
