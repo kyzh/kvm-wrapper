@@ -776,8 +776,6 @@ function kvm_build_vm ()
 
 	echo "Will now start VM $VM_NAME"
 	kvm_start_screen "$VM_NAME"
-	sleep 1
-	kvm_attach_screen "$VM_NAME"
 }
 
 function kvm_balloon_vm ()
