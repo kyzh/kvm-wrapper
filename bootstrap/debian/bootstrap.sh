@@ -6,15 +6,17 @@
 
 if [[ "`uname -m`" == "x86_64" ]]; then
 	ARCH_SUFFIX="amd64"
+  DPKG_ARCH="amd64"
 else
 	ARCH_SUFFIX="686"
+  DPKG_ARCH="i386"
 fi
 
 ### Configuration
 BOOTSTRAP_LINUX_IMAGE="linux-image-$ARCH_SUFFIX"
 BOOTSTRAP_REPOSITORY="http://ftp.jp.debian.org/debian/"
 #BOOTSTRAP_FLAVOR=${BOOTSTRAP_FLAVOR:-lenny}
-BOOTSTRAP_EXTRA_PKGSS="vim-nox,htop,screen,less,bzip2,bash-completion,locate,acpid,bind9-host,openssh-server,$BOOTSTRAP_LINUX_IMAGE"
+BOOTSTRAP_EXTRA_PKGSS="vim-nox,htop,screen,less,bzip2,bash-completion,locate,acpid,bind9-host,openssh-server,locales,$BOOTSTRAP_LINUX_IMAGE"
 if [[ "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then
 	BOOTSTRAP_EXTRA_PKGSS+=",grub"
 fi
@@ -93,41 +95,13 @@ EOF
 	echo
 	echo
 
-#	FIXME: should be removed anytime soon
-#	# Now debootstrap, first stage (do not configure), or decompress cache for this.
-#	# First we check if the cache is too old.
-#	if [[ -n "$BOOTSTRAP_CACHE" && -f "$BOOTSTRAP_CACHE" ]]; then
-#		find "$BOOTSTRAP_CACHE" -mtime +15 -exec rm {} \;
-#	    if [[ ! -f "$BOOTSTRAP_CACHE" ]]; then
-#			echo "Debootstrap cache $BOOTSTRAP_CACHE is too old and has been removed."
-#			echo "Generating a new one instead"
-#		fi
-#	fi
-#
-#	if [[ -f "$BOOTSTRAP_CACHE" ]]; then
-#		echo "Decompressing $BOOTSTRAP_CACHE - if you changed anything to debootstrap arguments, please remove this file"
-#		echo "It is automatically removed if it is more than two weeks old."
-#		cd "$MNTDIR"
-#		tar xf "$BOOTSTRAP_CACHE"
-#		cd - > /dev/null
-#	else
-#		debootstrap --foreign --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_REPOSITORY"
-#		if [[ -n "$BOOTSTRAP_CACHE" ]]; then
-#			echo "Building cache file $BOOTSTRAP_CACHE."
-#			cd "$MNTDIR"
-#			tar cf "$BOOTSTRAP_CACHE" .
-#			cd - > /dev/null
-#		fi
-#	fi
-#
-
 	# Debootstrap cache
 	local DEBOOTSTRAP_CACHE_OPTION=""
 	if [[ -n "$BOOTSTRAP_CACHE" ]]; then
 		test_file_rw "$BOOTSTRAP_CACHE" && find "$BOOTSTRAP_CACHE" -mtime +15 -exec rm {} \;
 		if ! test_file_rw "$BOOTSTRAP_CACHE"; then
 			echo "Debootstrap cache either absent or to old : building a new one ..."
-			eval debootstrap --arch i386 --make-tarball "$BOOTSTRAP_CACHE" --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_REPOSITORY" || true
+			eval debootstrap --arch $DPKG_ARCH --make-tarball "$BOOTSTRAP_CACHE" --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_REPOSITORY" || true
 		fi
 		if test_file "$BOOTSTRAP_CACHE"; then
 			echo "Using debootstrap cache : $BOOTSTRAP_CACHE"
@@ -174,7 +148,7 @@ EOF
 	cat >> "$BS_FILE" << EOF
 
 echo "Bootstrap ended, halting"
-} | /usr/bin/tee -a /var/log/bootstrap.log
+} 2>&1 | /usr/bin/tee -a /var/log/bootstrap.log
 exec /sbin/init 0
 EOF
 
@@ -195,6 +169,8 @@ EOF
 	desc_update_setting "KVM_INITRD" "$BOOTSTRAP_INITRD"
 	desc_update_setting "KVM_APPEND" "root=$rootdev ro init=/bootstrap-init.sh"
 	
+
+	kvm_init_env "$VM_NAME"
 
 	kvm_start_vm "$VM_NAME"
 
@@ -266,6 +242,6 @@ EOF
 		desc_remove_setting "KVM_INITRD"
 		desc_remove_setting "KVM_APPEND"
 	fi
-} | tee -a "$LOGFILE"
+} 2>&1 | tee -a "$LOGFILE"
 }
 
