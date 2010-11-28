@@ -6,10 +6,10 @@
 
 if [[ "`uname -m`" == "x86_64" ]]; then
 	ARCH_SUFFIX="amd64"
-  DPKG_ARCH="amd64"
+	DPKG_ARCH="amd64"
 else
 	ARCH_SUFFIX="686"
-  DPKG_ARCH="i386"
+	DPKG_ARCH="i386"
 fi
 
 ### Configuration
@@ -23,7 +23,7 @@ fi
 BOOTSTRAP_CONF_DIR="$BOOTSTRAP_DIR/$BOOTSTRAP_DISTRIB/conf"
 BOOTSTRAP_KERNEL="$BOOT_IMAGES_DIR/vmlinuz-$ARCH_SUFFIX"
 BOOTSTRAP_INITRD="$BOOT_IMAGES_DIR/initrd.img-$ARCH_SUFFIX"
-BOOTSTRAP_CACHE="$CACHE_DIR/$BOOTSTRAP_FLAVOR-debootstrap.tar"
+BOOTSTRAP_CACHE="$CACHE_DIR/$BOOTSTRAP_FLAVOR-$DPKG_ARCH-debootstrap.tar"
 ### 
 
 function bs_copy_from_host()
@@ -34,7 +34,7 @@ function bs_copy_from_host()
 
 function bs_copy_conf_dir()
 {
-   cp -rf "$BOOTSTRAP_CONF_DIR/"* "$MNTDIR/"
+	cp -rf "$BOOTSTRAP_CONF_DIR/"* "$MNTDIR/"
 }
 
 function bootstrap_fs()
@@ -43,12 +43,12 @@ function bootstrap_fs()
 	check_create_dir "$LOGDIR"
 	local LOGFILE="$LOGDIR/$VM_NAME-boostrap-`date +%Y-%m-%d-%H:%M:%S`"
 
-#    npipe="/tmp/$$-pipe.tmp"
-#    CLEANUP+=("rm -f $npipe")
-#    mknod $npipe p
-#    tee <$npipe "$LOGFILE" &
-#    exec 1>&-
-#    exec 1>$npipe
+#npipe="/tmp/$$-pipe.tmp"
+#CLEANUP+=("rm -f $npipe")
+#mknod $npipe p
+#tee <$npipe "$LOGFILE" &
+#exec 1>&-
+#exec 1>$npipe
 
 # well - this or { ... } |tee -a "$LOGFILE" - but you loose environment there, so this sucks. gotta cut it in about five pieces and it's ugly :P
 
@@ -66,7 +66,7 @@ function bootstrap_fs()
 
 	if [[ "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then
 		if [[ -n "$SWAP_SIZE" ]]; then
-	   		sfdisk -D -H 255 -S 63 -uM --Linux "$DISKDEV" <<EOF
+			sfdisk -D -H 255 -S 63 -uM --Linux "$DISKDEV" <<EOF
 ,$ROOT_SIZE,L,*
 ,,S
 EOF
@@ -164,7 +164,7 @@ EOF
 
 	# Start VM to debootstrap, second stage
 	desc_update_setting "KVM_NETWORK_MODEL" "virtio"
-#	desc_update_setting "KVM_DRIVE_IF" "virtio"
+	desc_update_setting "KVM_DRIVE_IF" "virtio"
 	desc_update_setting "KVM_KERNEL" "$BOOTSTRAP_KERNEL"
 	desc_update_setting "KVM_INITRD" "$BOOTSTRAP_INITRD"
 	desc_update_setting "KVM_APPEND" "root=$rootdev ro init=/bootstrap-init.sh"
@@ -186,9 +186,9 @@ EOF
 	# Copy some files/configuration from host
 	bs_copy_from_host /etc/hosts
 	bs_copy_from_host /etc/resolv.conf
-  echo "Europe/Paris" > "$MNTDIR/etc/hostname"
+	echo "Europe/Paris" > "$MNTDIR/etc/hostname"
 	bs_copy_from_host /etc/localtime
-  
+
 
 	echo "$VM_NAME" > "$MNTDIR/etc/hostname"
 	# Custom files
@@ -236,6 +236,7 @@ EOF
 	sync
 
 	desc_update_setting "KVM_APPEND" "root=$rootdev ro"
+	desc_update_setting "KVM_NETWORK_MODEL" "vhost_net"
 
 	if [[ "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then
 		desc_remove_setting "KVM_KERNEL"

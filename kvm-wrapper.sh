@@ -436,16 +436,17 @@ function kvm_start_vm ()
 	[[ -z "$KVM_BRIDGE" ]] && KVM_BRIDGE="kvmnat"
 	export KVM_BRIDGE
 	KVM_NET_SCRIPT="$ROOTDIR/net/kvm"
-	KVM_NET_TAP="tap,script=$KVM_NET_SCRIPT-ifup,downscript=$KVM_NET_SCRIPT-ifdown"
-#	KVM_NET="-netdev type=tap,id=guest0,script=$KVM_NET_SCRIPT-ifup,downscript=$KVM_NET_SCRIPT-ifdown,vhost=on -device virtio-net-pci,netdev=guest0,mac=$KVM_MACADDRESS"
+
+	[[ "$KVM_NETWORK_MODEL" = "vhost_net" ]] \
+		&& KVM_NET="-netdev type=tap,id=guest0,script=$KVM_NET_SCRIPT-ifup,downscript=$KVM_NET_SCRIPT-ifdown,vhost=on -device virtio-net-pci,netdev=guest0,mac=$KVM_MACADDRESS" \
+		|| KVM_NET="-net nic,model=$KVM_NETWORK_MODEL,macaddr=$KVM_MACADDRESS -net tap,script=$KVM_NET_SCRIPT-ifup,downscript=$KVM_NET_SCRIPT-ifdown"
 
 	# Monitor/serial devices
 	KVM_MONITORDEV="-monitor unix:$MONITOR_FILE,server,nowait"
 	KVM_SERIALDEV="-serial unix:$SERIAL_FILE,server,nowait"
 
 	# Build kvm exec string
-	local EXEC_STRING="$KVM_BIN -name $VM_NAME -m $KVM_MEM -smp $KVM_CPU_NUM -net nic,model=$KVM_NETWORK_MODEL,macaddr=$KVM_MACADDRESS -net $KVM_NET_TAP $KVM_DRIVES -boot $KVM_BOOTDEVICE $KVM_KEYMAP $KVM_OUTPUT $LINUXBOOT $KVM_MONITORDEV $KVM_SERIALDEV -pidfile $PID_FILE $KVM_ADDITIONNAL_PARAMS"
-#	local EXEC_STRING="$KVM_BIN -name $VM_NAME -m $KVM_MEM -smp $KVM_CPU_NUM $KVM_NET $KVM_DRIVES -boot $KVM_BOOTDEVICE $KVM_OUTPUT $LINUXBOOT $KVM_MONITORDEV $KVM_SERIALDEV -pidfile $PID_FILE $KVM_ADDITIONNAL_PARAMS"
+	local EXEC_STRING="$KVM_BIN -name $VM_NAME -m $KVM_MEM -smp $KVM_CPU_NUM $KVM_NET $KVM_DRIVES -boot $KVM_BOOTDEVICE $KVM_KEYMAP $KVM_OUTPUT $LINUXBOOT $KVM_MONITORDEV $KVM_SERIALDEV -pidfile $PID_FILE $KVM_ADDITIONNAL_PARAMS"
 
 	# More sanity checks : VM running, monitor socket existing, etc.
 	if [[ -z "$FORCE" ]]; then
@@ -628,9 +629,9 @@ function kvm_create_descriptor ()
 		fi
 	fi
 
-    VM_NAME="$1"
-    VM_DESCRIPTOR="$VM_DIR/$VM_NAME-vm"
-    test_file "$VM_DESCRIPTOR" && fail_exit "Error : $VM_NAME exists already ($VM_DESCRIPTOR found)"
+	VM_NAME="$1"
+	VM_DESCRIPTOR="$VM_DIR/$VM_NAME-vm"
+	test_file "$VM_DESCRIPTOR" && fail_exit "Error : $VM_NAME exists already ($VM_DESCRIPTOR found)"
 
 	touch "$VM_DESCRIPTOR"
 	echo "# VM $VM_NAME file descriptor" 			>> "$VM_DESCRIPTOR"
@@ -876,13 +877,13 @@ case "$1" in
 		;;
 	rundisk)
 		if [[ $# -eq 2 ]]; then
-		    kvm_run_disk "$2"
+			kvm_run_disk "$2"
 		else print_help; fi
 		exit 0
 		;;
 	edit)
 		if [[ $# -eq 2 ]]; then
-		    kvm_edit_descriptor "$2"
+			kvm_edit_descriptor "$2"
 		else print_help; fi
 		exit 0
 		;;
@@ -914,7 +915,7 @@ test_nodename "$KVM_CLUSTER_NODE" && { run_remote $KVM_CLUSTER_NODE $ROOTDIR/kvm
 case "$1" in
 	remove)
 		if [[ $# -eq 2 ]]; then
-		    kvm_remove "$2"
+			kvm_remove "$2"
 		else print_help; fi
 		;;
 	migrate)
@@ -998,33 +999,33 @@ case "$1" in
 		;;
 	attach)
 		if [[ $# -eq 2 ]]; then
-		    kvm_attach_screen "$2"
+			kvm_attach_screen "$2"
 		else print_help; fi
 		;;
 	monitor)
 		if [[ $# -eq 2 ]]; then
-		    kvm_monitor "$2"
+			kvm_monitor "$2"
 		else print_help; fi
 		;;
 	status)
-        if [[ -n "$2" ]]; then 
-            kvm_status "$2"
-        else kvm_status "all"; fi
+		if [[ -n "$2" ]]; then 
+			kvm_status "$2"
+		else kvm_status "all"; fi
 		exit 0
 		;;
 	serial)
 		if [[ $# -eq 2 ]]; then
-		    kvm_serial "$2"
+			kvm_serial "$2"
 		else print_help; fi
 		;;
 	stop)
 		if [[ $# -eq 2 ]]; then
-		    kvm_stop_vm "$2"
+			kvm_stop_vm "$2"
 		else print_help; fi
 		;;
 	bootstrap)
 		if [[ $# -ge 2 ]]; then
-		    kvm_bootstrap_vm "$2" "$3"
+			kvm_bootstrap_vm "$2" "$3"
 		else print_help; fi
 		;;
 	create-disk)
