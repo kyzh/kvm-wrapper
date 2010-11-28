@@ -12,7 +12,7 @@ fi
 
 ### Configuration
 BOOTSTRAP_LINUX_IMAGE="linux-image-$ARCH_SUFFIX"
-BOOTSTRAP_REPOSITORY="http://ftp.fr.debian.org/debian/"
+BOOTSTRAP_REPOSITORY="http://ftp.jp.debian.org/debian/"
 #BOOTSTRAP_FLAVOR=${BOOTSTRAP_FLAVOR:-lenny}
 BOOTSTRAP_EXTRA_PKGSS="vim-nox,htop,screen,less,bzip2,bash-completion,locate,acpid,bind9-host,openssh-server,$BOOTSTRAP_LINUX_IMAGE"
 if [[ "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then

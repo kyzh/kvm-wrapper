@@ -374,6 +374,7 @@ function kvm_start_vm ()
 	export KVM_BRIDGE
 	KVM_NET_SCRIPT="$ROOTDIR/net/kvm"
 	KVM_NET_TAP="tap,script=$KVM_NET_SCRIPT-ifup,downscript=$KVM_NET_SCRIPT-ifdown"
+#	KVM_NET="-netdev type=tap,id=guest0,script=$KVM_NET_SCRIPT-ifup,downscript=$KVM_NET_SCRIPT-ifdown,vhost=on -device virtio-net-pci,netdev=guest0,mac=$KVM_MACADDRESS"
 
 	# Monitor/serial devices
 	KVM_MONITORDEV="-monitor unix:$MONITOR_FILE,server,nowait"
@@ -381,6 +382,7 @@ function kvm_start_vm ()
 
 	# Build kvm exec string
 	local EXEC_STRING="$KVM_BIN -name $VM_NAME -m $KVM_MEM -smp $KVM_CPU_NUM -net nic,model=$KVM_NETWORK_MODEL,macaddr=$KVM_MACADDRESS -net $KVM_NET_TAP $KVM_DRIVES -boot $KVM_BOOTDEVICE $KVM_OUTPUT $LINUXBOOT $KVM_MONITORDEV $KVM_SERIALDEV -pidfile $PID_FILE $KVM_ADDITIONNAL_PARAMS"
+#	local EXEC_STRING="$KVM_BIN -name $VM_NAME -m $KVM_MEM -smp $KVM_CPU_NUM $KVM_NET $KVM_DRIVES -boot $KVM_BOOTDEVICE $KVM_OUTPUT $LINUXBOOT $KVM_MONITORDEV $KVM_SERIALDEV -pidfile $PID_FILE $KVM_ADDITIONNAL_PARAMS"
 
 	# More sanity checks : VM running, monitor socket existing, etc.
 	test_file "$PID_FILE" && fail_exit "VM $VM_NAME seems to be running already.\nPID file $PID_FILE exists"
