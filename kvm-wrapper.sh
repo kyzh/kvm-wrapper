@@ -10,11 +10,11 @@
 #######################################################################
 #
 # kvm -net nic,model=virtio,macaddr=00:11:22:33:44:55 -net tap
-# 	  -hda /path/to/hda -hdb /path/to/hdb -cdrom /path/to/cdrom
-#	  -boot a|c|d|n
-#	  -k en-us
-#	  -vnc :1 -nographics -curses
-#	  -pidfile myfile.pid
+# 	-hda /path/to/hda -hdb /path/to/hdb -cdrom /path/to/cdrom
+#		-boot a|c|d|n
+#		-k en-us
+#		-vnc :1 -nographics -curses
+#		-pidfile myfile.pid
 #
 #######################################################################
 
@@ -740,6 +740,11 @@ function kvm_build_vm ()
 				USER_OPTIONS+=("$2")
 				shift; shift
 				;;
+			"-f"|"--flavor")
+				USER_OPTIONS+=("BOOTSTRAP_FLAVOR")
+				USER_OPTIONS+=("$2")
+				shift; shift
+				;;
 			"-e"|"--edit"|"--edit-conf")
 				EDIT_CONF="yes"
 				shift
@@ -828,6 +833,7 @@ function print_help ()
 	echo -e "   -e, --edit:             If you want to edit the descriptor after autoconfiguration"
 	echo -e "   -c num, --cpu num:      Number of cpu the system should have"
 	echo -e "   --swap size:            Size of the swap in MB"
+	echo -e "   --favor name, -f name:  Flavor of the debian release (lenny, squeeze..)"
 	echo
 	echo -e " More to come ?"
 	;;
@@ -932,8 +938,8 @@ case "$1" in
 		;;
 	receive-migrate)
 		if [[ $# -eq 3 ]]; then
-#			KVM_ADDITIONNAL_PARAMS+=" -incoming unix:$RUN_DIR/migrate-$VM_NAME.sock"  
-			KVM_ADDITIONNAL_PARAMS+=" -incoming tcp:`get_cluster_host $(hostname -s)`:$2"  
+#			KVM_ADDITIONNAL_PARAMS+=" -incoming unix:$RUN_DIR/migrate-$VM_NAME.sock"
+			KVM_ADDITIONNAL_PARAMS+=" -incoming tcp:`get_cluster_host $(hostname -s)`:$2"
 			FORCE="yes"
 			kvm_start_vm "$VM_NAME"
 		else print_help; fi
@@ -956,7 +962,7 @@ case "$1" in
 		;;
 	load-state)
 		if [[ $# -eq 2 ]]; then
-			KVM_ADDITIONNAL_PARAMS+=" -incoming \"exec: gzip -c -d /var/cache/kvm-wrapper/$2-state.gz\""  
+			KVM_ADDITIONNAL_PARAMS+=" -incoming \"exec: gzip -c -d /var/cache/kvm-wrapper/$2-state.gz\""
 			FORCE="yes"
 			kvm_start_vm "$2"
 		else print_help; fi
