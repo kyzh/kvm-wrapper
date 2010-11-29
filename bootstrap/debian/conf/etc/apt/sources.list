@@ -1,12 +1,12 @@
 # VIA Repositories
 
-deb http://ftp.jp.debian.org/debian/ lenny main non-free contrib
-deb-src http://ftp.jp.debian.org/debian/ lenny main non-free contrib
+deb DEBIAN_MIRROR FLAVOR main non-free contrib
+deb-src DEBIAN_MIRROR FLAVOR main non-free contrib
 
 # Security
-#deb http://security.debian.org/ lenny/updates main contrib non-free
-#deb-src http://security.debian.org/ lenny/updates main contrib non-free
+#deb http://security.debian.org/ FLAVOR/updates main contrib non-free
+#deb-src http://security.debian.org/ FLAVOR/updates main contrib non-free
 
 # Volatile
-#deb http://volatile.debian.org/debian-volatile lenny/volatile main contrib non-free
-#deb-src http://volatile.debian.org/debian-volatile lenny/volatile main contrib non-free
+#deb http://volatile.debian.org/debian-volatile FLAVOR/volatile main contrib non-free
+#deb-src http://volatile.debian.org/debian-volatile FLAVOR/volatile main contrib non-free

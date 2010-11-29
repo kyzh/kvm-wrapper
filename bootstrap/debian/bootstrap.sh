@@ -14,9 +14,9 @@ fi
 
 ### Configuration
 BOOTSTRAP_LINUX_IMAGE="linux-image-$ARCH_SUFFIX"
-BOOTSTRAP_REPOSITORY="http://ftp.jp.debian.org/debian/"
+BOOTSTRAP_DEBIAN_MIRROR=${BOOTSTRAP_DEBIAN_MIRROR:-"http://ftp.fr.debian.org/debian/"}
 #BOOTSTRAP_FLAVOR=${BOOTSTRAP_FLAVOR:-lenny}
-BOOTSTRAP_EXTRA_PKGSS="vim-nox,htop,screen,less,bzip2,bash-completion,locate,acpid,bind9-host,openssh-server,locales,$BOOTSTRAP_LINUX_IMAGE"
+BOOTSTRAP_EXTRA_PKGSS="vim-nox,htop,screen,less,bzip2,bash-completion,locate,acpid,acpi-support-base,console-tools,bind9-host,openssh-server,locales,$BOOTSTRAP_LINUX_IMAGE"
 if [[ "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then
 	BOOTSTRAP_EXTRA_PKGSS+=",grub"
 fi
@@ -101,7 +101,7 @@ EOF
 		test_file_rw "$BOOTSTRAP_CACHE" && find "$BOOTSTRAP_CACHE" -mtime +15 -exec rm {} \;
 		if ! test_file_rw "$BOOTSTRAP_CACHE"; then
 			echo "Debootstrap cache either absent or to old : building a new one ..."
-			eval debootstrap --arch $DPKG_ARCH --make-tarball "$BOOTSTRAP_CACHE" --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_REPOSITORY" || true
+			eval debootstrap --arch $DPKG_ARCH --make-tarball "$BOOTSTRAP_CACHE" --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_DEBIAN_MIRROR" || true
 		fi
 		if test_file "$BOOTSTRAP_CACHE"; then
 			echo "Using debootstrap cache : $BOOTSTRAP_CACHE"
@@ -112,7 +112,7 @@ EOF
 	fi
 
 	# Now build our destination
-	eval debootstrap --arch i386 "$DEBOOTSTRAP_CACHE_OPTION" --foreign --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_REPOSITORY"
+	eval debootstrap --arch i386 "$DEBOOTSTRAP_CACHE_OPTION" --foreign --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_DEBIAN_MIRROR"
 
 	# init script to be run on first VM boot
 	local BS_FILE="$MNTDIR/bootstrap-init.sh"
@@ -228,15 +228,20 @@ EOF
 iface eth0 inet dhcp
 EOF
 	fi
-	
+
+	sed -i -e 's/root:\*:/root::/' "$MNTDIR/etc/shadow" # squeeze sucks. no, really, I mean it.
+
+  sed -i -e "s@DEBIAN_MIRROR@$BOOTSTRAP_DEBIAN_MIRROR@" "$MNTDIR/etc/apt/sources.list"
+  sed -i -e "s/FLAVOR/$BOOTSTRAP_FLAVOR/" "$MNTDIR/etc/apt/sources.list"
+
 	if [[ -n "$BOOTSTRAP_FINALIZE_COMMAND" ]]; then
 		eval "$BOOTSTRAP_FINALIZE_COMMAND"
-	fi
-	
+	fi	
+
 	sync
 
 	desc_update_setting "KVM_APPEND" "root=$rootdev ro"
-	desc_update_setting "KVM_NETWORK_MODEL" "vhost_net"
+#	desc_update_setting "KVM_NETWORK_MODEL" "vhost_net"
 
 	if [[ "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then
 		desc_remove_setting "KVM_KERNEL"
