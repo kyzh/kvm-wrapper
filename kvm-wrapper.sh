@@ -22,7 +22,7 @@ PATH=/usr/sbin:/usr/bin:/sbin:/bin
 
 function canonpath ()
 {
-	echo $(cd $(dirname $1); pwd -P)/$(basename $1)
+	echo $(cd $(dirname "$1"); pwd -P)/$(basename "$1")
 }
 
 # Exit on fail and print a nice message
@@ -211,7 +211,7 @@ run_remote ()
 function nbd_img_link ()
 {
 	KVM_IMAGE="$1"
-	echo "$NBD_IMG_LINK_DIR/$(basename $KVM_IMAGE)-$(echo $(canonpath "$KVM_IMAGE") | md5sum | awk '{print $1}')"
+	echo "$NBD_IMG_LINK_DIR/$(basename $KVM_IMAGE)-$(canonpath "$KVM_IMAGE" | md5sum | awk '{print $1}')"
 }
 
 function kvm_nbd_connect ()
@@ -223,11 +223,9 @@ function kvm_nbd_connect ()
 	local KVM_IMAGE_NBD_LINK=$(nbd_img_link "$KVM_IMAGE")
 	[[ -h "$KVM_IMAGE_NBD_LINK" ]] && fail_exit "Image disk $KVM_IMAGE seems to be connected already."
 
-	local i=0
 	local SUCCESS=0
-	for ((i=0; i <= 15; i++))
-	do
-		local NBD_BLOCKDEV="/dev/nbd$i"
+	local NBD_BLOCKDEV
+	for NBD_BLOCKDEV in /dev/nbd*; do
 		local NBD_SOCKET_LOCK="/var/lock/qemu-nbd-nbd$i"
 
 		test_blockdev_rw "$NBD_BLOCKDEV" || continue
@@ -693,18 +691,19 @@ function kvm_bootstrap_vm ()
 	if ! test_blockdev "$KVM_DISK1"
 	then
 		require_exec "$KVM_NBD_BIN"
-		test_file "$KVM_DISK1" || fail_exit ""$KVM_DISK1" appears to be neither a blockdev nor a regular file."
+		test_file "$KVM_DISK1" || fail_exit "\"$KVM_DISK1\" appears to be neither a blockdev nor a regular file."
 		echo "Attempting to connect the disk image to an nbd device."
 		kvm_nbd_connect "$KVM_DISK1"
+		CLEANUP+=("kvm_nbd_disconnect \"$KVM_DISK1\"")
 		local BOOTSTRAP_DEVICE=$(nbd_img_link "$KVM_DISK1")
+		sleep 1 #needed to give time to the nbd to really connect
 	else
 		local BOOTSTRAP_DEVICE="$KVM_DISK1"
 	fi
 
-	echo "Starting to bootstrap $VM_NAME as $BOOTSTRAP_DISTRIB on disk $KVM_DISK1"
+	echo "Starting to bootstrap $VM_NAME as $BOOTSTRAP_DISTRIB on disk $BOOTSTRAP_DEVICE"
 	bootstrap_fs "$BOOTSTRAP_DEVICE"
 	sync
-	test_blockdev "$KVM_DISK1" || kvm_nbd_disconnect "$KVM_DISK1"
 
 	cleanup
 	trap - EXIT

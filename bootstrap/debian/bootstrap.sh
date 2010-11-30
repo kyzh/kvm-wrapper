@@ -112,7 +112,7 @@ EOF
 	fi
 
 	# Now build our destination
-	eval debootstrap --arch i386 "$DEBOOTSTRAP_CACHE_OPTION" --foreign --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_DEBIAN_MIRROR"
+	eval debootstrap --arch $DPKG_ARCH "$DEBOOTSTRAP_CACHE_OPTION" --foreign --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_DEBIAN_MIRROR"
 
 	# init script to be run on first VM boot
 	local BS_FILE="$MNTDIR/bootstrap-init.sh"
@@ -164,7 +164,8 @@ EOF
 
 	# Start VM to debootstrap, second stage
 	desc_update_setting "KVM_NETWORK_MODEL" "virtio"
-	desc_update_setting "KVM_DRIVE_IF" "virtio"
+	[[ test_blockdev "$KVM_DISK1" ]] \
+		&& desc_update_setting "KVM_DRIVE_IF" "virtio,cache=none,aio=native"
 	desc_update_setting "KVM_KERNEL" "$BOOTSTRAP_KERNEL"
 	desc_update_setting "KVM_INITRD" "$BOOTSTRAP_INITRD"
 	desc_update_setting "KVM_APPEND" "root=$rootdev ro init=/bootstrap-init.sh"
