@@ -878,6 +878,10 @@ case "$1" in
 		kvm_list
 		exit 0
 		;;
+	status)
+		kvm_status "all"
+    exit 0
+		;;
 	rundisk)
 		if [[ $# -eq 2 ]]; then
 			kvm_run_disk "$2"
@@ -1011,10 +1015,7 @@ case "$1" in
 		else print_help; fi
 		;;
 	status)
-		if [[ -n "$2" ]]; then 
-			kvm_status "$2"
-		else kvm_status "all"; fi
-		exit 0
+		kvm_status "$2"
 		;;
 	serial)
 		if [[ $# -eq 2 ]]; then

@@ -164,8 +164,8 @@ EOF
 
 	# Start VM to debootstrap, second stage
 	desc_update_setting "KVM_NETWORK_MODEL" "virtio"
-	[[ test_blockdev "$KVM_DISK1" ]] \
-		&& desc_update_setting "KVM_DRIVE_IF" "virtio,cache=none,aio=native"
+	test_blockdev "$KVM_DISK1" \
+		&& desc_update_setting "KVM_DRIVE_IF" "virtio$BOOTSTRAP_DISK_OPTIONS"
 	desc_update_setting "KVM_KERNEL" "$BOOTSTRAP_KERNEL"
 	desc_update_setting "KVM_INITRD" "$BOOTSTRAP_INITRD"
 	desc_update_setting "KVM_APPEND" "root=$rootdev ro init=/bootstrap-init.sh"
