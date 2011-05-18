@@ -30,10 +30,6 @@ function fail_exit ()
 {
 	echo -e "$1"
 	echo "Exiting."
-
-	# Hang for a while - for screen
-	sleep 100
-
 	exit 1
 }
 
@@ -153,7 +149,6 @@ function kvm_init_env ()
 	VM_DESCRIPTOR="$VM_DIR/$VM_NAME-vm"
 	MONITOR_FILE="$MONITOR_DIR/$VM_NAME.unix"
 	SERIAL_FILE="$SERIAL_DIR/$VM_NAME.unix"
-	SCREENLOG="$LOGDIR/screenlog-$VM_NAME.log"
 
 	local vmnamehash=$(echo $VM_NAME|md5sum)
 	vmnamehash=${vmnamehash:0:5}
@@ -539,28 +534,13 @@ function kvm_run_disk ()
 
 function kvm_start_screen ()
 {
-	screen $SCREEN_ARGS -S "$SCREEN_SESSION_NAME" "$SCRIPT_PATH" start-here "$VM_NAME"
-	sleep 1
-}
-
-function kvm_start_here_screen ()
-{
-	check_create_dir "$LOGDIR"
-	rm -f "$SCREENLOG"
-	screen -x "$SCREEN_SESSION_NAME" -X logfile "$SCREENLOG"
-	screen -x "$SCREEN_SESSION_NAME" -X log
-	{
-		grep -m 1 'kvm' <(tail -f "$SCREENLOG") >/dev/null
-		screen -x "$SCREEN_SESSION_NAME" -X log
-	}&
-	sleep 1
-	kvm_start_vm "$VM_NAME"
+	$SCREEN_START_ATTACHED "$SCREEN_SESSION_NAME" "$SCRIPT_PATH" start-here "$VM_NAME"
 }
 
 function kvm_attach_screen ()
 {
 	! test_file "$PID_FILE" && fail_exit "Error : $VM_NAME doesn't seem to be running."
-	screen -x "$SCREEN_SESSION_NAME"
+	$SCREEN_ATTACH "$SCREEN_SESSION_NAME"
 }
 
 function kvm_monitor ()
@@ -949,7 +929,7 @@ case "$1" in
 		;;
 	receive-migrate-screen)
 		if [[ $# -eq 3 ]]; then
-			screen -d -m -S "$SCREEN_SESSION_NAME" "$SCRIPT_PATH" receive-migrate "$2" "$VM_NAME"
+			$SCREEN_START_DETACHED "$SCREEN_SESSION_NAME" "$SCRIPT_PATH" receive-migrate "$2" "$VM_NAME"
 			sleep 1
 		else print_help; fi
 		;;
@@ -978,13 +958,11 @@ case "$1" in
 	restart)
 		if [[ $# -eq 2 ]]; then
 			kvm_stop_vm "$2"
-			SCREEN_ARGS="-m"
 			kvm_start_screen "$2"
 		else print_help; fi
 		;;
 	start)
 		if [[ $# -eq 2 ]]; then
-			SCREEN_ARGS="-m"
 			kvm_start_screen "$2"
 		else print_help; fi
 		;;
@@ -993,14 +971,8 @@ case "$1" in
 			kvm_start_vm "$2"
 		else print_help; fi
 		;;
-	start-here-screen)
-		if [[ $# -eq 2 ]]; then
-			kvm_start_here_screen "$2"
-		else print_help; fi
-		;;
 	screen)
 		if [[ $# -eq 2 ]]; then
-			SCREEN_ARGS="-d -m"
 			kvm_start_screen "$2"
 		else print_help; fi
 		;;
