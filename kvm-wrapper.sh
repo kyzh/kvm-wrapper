@@ -152,7 +152,7 @@ function kvm_init_env ()
 
 	local vmnamehash=$(echo $VM_NAME|md5sum)
 	vmnamehash=${vmnamehash:0:5}
-	SCREEN_SESSION_NAME="kvm-$VM_NAME-$vmnamehash"
+	SCREEN_SESSION_NAME="$SCREEN_NAME_PREFIXkvm-$VM_NAME-$vmnamehash"
 
 	unset PID_FILE
 	test_file "$VM_DESCRIPTOR" || fail_exit "Couldn't open VM $VM_NAME descriptor :\n$VM_DESCRIPTOR"
