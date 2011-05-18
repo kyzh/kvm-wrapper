@@ -16,7 +16,7 @@ fi
 BOOTSTRAP_LINUX_IMAGE="linux-image-$ARCH_SUFFIX"
 BOOTSTRAP_DEBIAN_MIRROR=${BOOTSTRAP_DEBIAN_MIRROR:-"http://ftp.fr.debian.org/debian/"}
 #BOOTSTRAP_FLAVOR=${BOOTSTRAP_FLAVOR:-lenny}
-BOOTSTRAP_EXTRA_PKGSS="vim-nox,htop,screen,less,bzip2,bash-completion,locate,acpid,acpi-support-base,console-tools,bind9-host,openssh-server,locales,$BOOTSTRAP_LINUX_IMAGE"
+BOOTSTRAP_EXTRA_PKGSS="vim-nox,htop,screen,less,bzip2,bash-completion,locate,acpid,acpi-support-base,bind9-host,openssh-server,locales,$BOOTSTRAP_LINUX_IMAGE"
 if [[ "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then
 	BOOTSTRAP_EXTRA_PKGSS+=",grub"
 fi
