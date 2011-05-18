@@ -28,6 +28,7 @@ function canonpath ()
 # Exit on fail and print a nice message
 function fail_exit ()
 {
+  echo -ne '\n\n\n'
 	echo -e "$1"
 	echo "Exiting."
 	exit 1
@@ -152,7 +153,7 @@ function kvm_init_env ()
 
 	local vmnamehash=$(echo $VM_NAME|md5sum)
 	vmnamehash=${vmnamehash:0:5}
-	SCREEN_SESSION_NAME="$SCREEN_NAME_PREFIXkvm-$VM_NAME-$vmnamehash"
+	SCREEN_SESSION_NAME="${SCREEN_NAME_PREFIX}kvm-$VM_NAME-$vmnamehash"
 
 	unset PID_FILE
 	test_file "$VM_DESCRIPTOR" || fail_exit "Couldn't open VM $VM_NAME descriptor :\n$VM_DESCRIPTOR"
@@ -534,13 +535,13 @@ function kvm_run_disk ()
 
 function kvm_start_screen ()
 {
-	$SCREEN_START_ATTACHED "$SCREEN_SESSION_NAME" "$SCRIPT_PATH" start-here "$VM_NAME"
+	$SCREEN_START_ATTACHED "$SCREEN_SESSION_NAME" $SCREEN_EXTRA_OPTS "$SCRIPT_PATH" start-here "$VM_NAME"
 }
 
 function kvm_attach_screen ()
 {
 	! test_file "$PID_FILE" && fail_exit "Error : $VM_NAME doesn't seem to be running."
-	$SCREEN_ATTACH "$SCREEN_SESSION_NAME"
+	$SCREEN_ATTACH "$SCREEN_SESSION_NAME" $SCREEN_EXTRA_OPTS
 }
 
 function kvm_monitor ()
@@ -929,7 +930,7 @@ case "$1" in
 		;;
 	receive-migrate-screen)
 		if [[ $# -eq 3 ]]; then
-			$SCREEN_START_DETACHED "$SCREEN_SESSION_NAME" "$SCRIPT_PATH" receive-migrate "$2" "$VM_NAME"
+			$SCREEN_START_DETACHED "$SCREEN_SESSION_NAME" $SCREEN_EXTRA_OPTS "$SCRIPT_PATH" receive-migrate "$2" "$VM_NAME"
 			sleep 1
 		else print_help; fi
 		;;
