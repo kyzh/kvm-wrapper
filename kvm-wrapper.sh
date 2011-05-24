@@ -164,17 +164,12 @@ function kvm_init_env ()
 
 function random_mac ()
 {
-# Macaddress : 52:54:00:ff:34:56
-local RANGE=99
-local STR=""
-for blah in 0 1
-do
-	local number=$RANDOM
-	let "number %= $RANGE"
-	STR="$STR"":""$number"
-done
-local MACADDRESS="52:54:00:ff""$STR"
-echo -ne $MACADDRESS
+	local MACADDRESS="52:54:00:ff:`(date; cat /proc/interrupts) |
+		md5sum | sed -e 's/\(..\)\(..\).*/\1:\2/'`"
+	# check if it's not already used..
+	grep -q "KVM_MACADDRESS=\"$MACADDRESS\"" $VM_DIR/*-vm \
+		&& random_mac \
+		|| echo -n $MACADDRESS
 }
 
 # cluster helpers
