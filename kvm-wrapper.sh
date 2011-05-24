@@ -164,17 +164,12 @@ function kvm_init_env ()
 
 function random_mac ()
 {
-# Macaddress : 52:54:00:ff:34:56
-local RANGE=99
-local STR=""
-for blah in 0 1
-do
-	local number=$RANDOM
-	let "number %= $RANGE"
-	STR="$STR"":""$number"
-done
-local MACADDRESS="52:54:00:ff""$STR"
-echo -ne $MACADDRESS
+	local MACADDRESS="52:54:00:ff:`(date; cat /proc/interrupts) |
+		md5sum | sed -e 's/\(..\)\(..\).*/\1:\2/'`"
+	# check if it's not already used..
+	grep -q "KVM_MACADDRESS=\"$MACADDRESS\"" $VM_DIR/*-vm \
+		&& random_mac \
+		|| echo -n $MACADDRESS
 }
 
 # cluster helpers
@@ -316,20 +311,6 @@ function serial_perms_forked()
 }
 
 # VM descriptor helpers
-# Update (if exists) descriptor setting and keep a backup, create otherwise
-function desc_update_backup_setting ()
-{
-	local KEY="$1"
-	local VALUE="$2"
-	local IDENT=$RANDOM
-
-	#sed -i "s/^$KEY.*/#\0 ###AUTO$IDENT\n$KEY=$(escape_sed "\"$VALUE\"") ###AUTO$IDENT/g" "$VM_DESCRIPTOR"
-	sed -i "s/^$KEY.*/#\0 ###AUTO$IDENT/g" "$VM_DESCRIPTOR"
-	echo "$KEY=\"$VALUE\" ###AUTO$IDENT" >> "$VM_DESCRIPTOR"
-
-	echo $IDENT
-}
-
 # Overwrite (or create) descriptor setting
 function desc_update_setting ()
 {
@@ -343,22 +324,25 @@ function desc_update_setting ()
 		$ t
 		$ a$NEW
 		}" "$VM_DESCRIPTOR"
-	#sed -i "/^$KEY.*/d" "$VM_DESCRIPTOR"
-	#echo "$KEY=\"$VALUE\" ###AUTO" >> "$VM_DESCRIPTOR"
 }
 
 # Revert descriptor setting modified by this script
 function desc_revert_setting()
 {
-	local IDENT="$1"
-	sed -i "/^[^#].*###AUTO$IDENT$/d" "$VM_DESCRIPTOR"
-	sed -ie "s/^#\(.*\)###AUTO$IDENT$/\1/g" "$VM_DESCRIPTOR"
+	local KEY="$1"
+	sed -i -e "s/^$KEY=[^#]*## /$KEY=/" "$VM_DESCRIPTOR"
 }
 
 function desc_remove_setting()
 {
 	local KEY="$1"
-	sed -i "/^$KEY/d" "$VM_DESCRIPTOR"
+	sed -i -e "/^$KEY/d" "$VM_DESCRIPTOR"
+}
+
+function desc_comment_setting()
+{
+	local KEY="$1"
+	sed -i -e "s/^$KEY/#$KEY/" "$VM_DESCRIPTOR"
 }
 
 function monitor_send_cmd ()
