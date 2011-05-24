@@ -16,7 +16,7 @@ fi
 BOOTSTRAP_LINUX_IMAGE="linux-image-$ARCH_SUFFIX"
 BOOTSTRAP_DEBIAN_MIRROR=${BOOTSTRAP_DEBIAN_MIRROR:-"http://ftp.fr.debian.org/debian/"}
 #BOOTSTRAP_FLAVOR=${BOOTSTRAP_FLAVOR:-lenny}
-BOOTSTRAP_EXTRA_PKGSS="vim-nox,htop,screen,less,bzip2,bash-completion,locate,acpid,acpi-support-base,bind9-host,openssh-server,locales,$BOOTSTRAP_LINUX_IMAGE"
+BOOTSTRAP_EXTRA_PKGSS="vim-nox,htop,screen,less,bzip2,bash-completion,locate,acpid,acpi-support-base,bind9-host,openssh-server,locales,ntp,busybox,$BOOTSTRAP_LINUX_IMAGE"
 if [[ "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then
 	BOOTSTRAP_EXTRA_PKGSS+=",grub"
 fi
@@ -114,6 +114,11 @@ EOF
 	# Now build our destination
 	eval debootstrap --arch $DPKG_ARCH "$DEBOOTSTRAP_CACHE_OPTION" --foreign --include="$BOOTSTRAP_EXTRA_PKGSS" "$BOOTSTRAP_FLAVOR" "$MNTDIR" "$BOOTSTRAP_DEBIAN_MIRROR"
 
+	# Fix for linux-image module which isn't handled correctly by debootstrap
+	echo "warn_initrd = no" > "$MNTDIR/etc/kernel-img.conf"
+	echo "do_symlinks = no" >> "$MNTDIR/etc/kernel-img.conf"
+
+
 	# init script to be run on first VM boot
 	local BS_FILE="$MNTDIR/bootstrap-init.sh"
 	cat > "$BS_FILE" << EOF
@@ -121,10 +126,6 @@ EOF
 export PATH="/usr/sbin:/usr/bin:/sbin:/bin"
 mount -no remount,rw /
 cat /proc/mounts
-
-# Fix for linux-image module which isn't handled correctly by debootstrap
-touch /vmlinuz /initrd.img
-echo "do_initrd = Yes" >> /etc/kernel-img.conf
 
 /debootstrap/debootstrap --second-stage
 mount -nt proc proc /proc
@@ -137,6 +138,7 @@ EOF
 	if [[ "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then
 		cat >> "$BS_FILE" << EOF
 /usr/sbin/grub-install /dev/[vh]da
+sed -i -e 's/#\(GRUB_TERMINAL=console\)/\1/' /etc/default/grub
 /usr/sbin/update-grub
 EOF
 	fi
@@ -146,6 +148,8 @@ EOF
 	fi
 
 	cat >> "$BS_FILE" << EOF
+
+aptitude update
 
 echo "Bootstrap ended, halting"
 } 2>&1 | /usr/bin/tee -a /var/log/bootstrap.log
