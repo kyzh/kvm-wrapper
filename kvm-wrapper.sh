@@ -316,20 +316,6 @@ function serial_perms_forked()
 }
 
 # VM descriptor helpers
-# Update (if exists) descriptor setting and keep a backup, create otherwise
-function desc_update_backup_setting ()
-{
-	local KEY="$1"
-	local VALUE="$2"
-	local IDENT=$RANDOM
-
-	#sed -i "s/^$KEY.*/#\0 ###AUTO$IDENT\n$KEY=$(escape_sed "\"$VALUE\"") ###AUTO$IDENT/g" "$VM_DESCRIPTOR"
-	sed -i "s/^$KEY.*/#\0 ###AUTO$IDENT/g" "$VM_DESCRIPTOR"
-	echo "$KEY=\"$VALUE\" ###AUTO$IDENT" >> "$VM_DESCRIPTOR"
-
-	echo $IDENT
-}
-
 # Overwrite (or create) descriptor setting
 function desc_update_setting ()
 {
@@ -343,22 +329,25 @@ function desc_update_setting ()
 		$ t
 		$ a$NEW
 		}" "$VM_DESCRIPTOR"
-	#sed -i "/^$KEY.*/d" "$VM_DESCRIPTOR"
-	#echo "$KEY=\"$VALUE\" ###AUTO" >> "$VM_DESCRIPTOR"
 }
 
 # Revert descriptor setting modified by this script
 function desc_revert_setting()
 {
-	local IDENT="$1"
-	sed -i "/^[^#].*###AUTO$IDENT$/d" "$VM_DESCRIPTOR"
-	sed -ie "s/^#\(.*\)###AUTO$IDENT$/\1/g" "$VM_DESCRIPTOR"
+	local KEY="$1"
+	sed -i -e "s/^$KEY=[^#]*## /$KEY=/" "$VM_DESCRIPTOR"
 }
 
 function desc_remove_setting()
 {
 	local KEY="$1"
-	sed -i "/^$KEY/d" "$VM_DESCRIPTOR"
+	sed -i -e "/^$KEY/d" "$VM_DESCRIPTOR"
+}
+
+function desc_comment_setting()
+{
+	local KEY="$1"
+	sed -i -e "s/^$KEY/#$KEY/" "$VM_DESCRIPTOR"
 }
 
 function monitor_send_cmd ()
