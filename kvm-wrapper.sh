@@ -522,6 +522,11 @@ function kvm_start_screen ()
 	$SCREEN_START_ATTACHED "$SCREEN_SESSION_NAME" $SCREEN_EXTRA_OPTS "$SCRIPT_PATH" start-here "$VM_NAME"
 }
 
+function kvm_start_screen_detached ()
+{
+	$SCREEN_START_DETACHED "$SCREEN_SESSION_NAME" $SCREEN_EXTRA_OPTS "$SCRIPT_PATH" start-here "$VM_NAME"
+}
+
 function kvm_attach_screen ()
 {
 	! test_file "$PID_FILE" && fail_exit "Error : $VM_NAME doesn't seem to be running."
@@ -958,7 +963,7 @@ case "$1" in
 		;;
 	screen)
 		if [[ $# -eq 2 ]]; then
-			kvm_start_screen "$2"
+			kvm_start_screen_detached "$2"
 		else print_help; fi
 		;;
 	attach)
