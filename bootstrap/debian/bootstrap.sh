@@ -79,7 +79,7 @@ EOF
 
 		if [[ -n "$SWAP_SIZE" ]]; then
 			swapdev="${PARTDEV:0:$((${#PARTDEV}-1))}2"
-			swap_uuid=`mkswap $swapdev|grep -o -e 'UUID=.*'`
+			swap_uuid=`mkswap -f $swapdev|grep -o -e 'UUID=.*'`
 		fi
 
 		CLEANUP+=("unmap_disk $DISKDEV")
