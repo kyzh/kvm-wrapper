@@ -1,24 +1,13 @@
 #!/bin/bash
 #
 # KVM Wrapper Script
-# -- bencoh, 2009/06
-#
+# -- bencoh, 2009-2011
+# -- Asmadeus, 2009-2011
 
-
-#######################################################################
-# Draft 
-#######################################################################
-#
-# kvm -net nic,model=virtio,macaddr=00:11:22:33:44:55 -net tap
-# 	-hda /path/to/hda -hdb /path/to/hdb -cdrom /path/to/cdrom
-#		-boot a|c|d|n
-#		-k en-us
-#		-vnc :1 -nographics -curses
-#		-pidfile myfile.pid
-#
-#######################################################################
-
-PATH=/usr/sbin:/usr/bin:/sbin:/bin
+SCRIPT_PATH="$0"
+SCRIPT_NAME="`basename $SCRIPT_PATH`"
+ROOTDIR="/usr/share/kvm-wrapper"
+CONFFILE="$ROOTDIR/kvm-wrapper.conf"
 
 function canonpath ()
 {
@@ -825,11 +814,6 @@ function print_help ()
 	esac
 	exit 2
 }
-
-SCRIPT_PATH="$0"
-SCRIPT_NAME="`basename $SCRIPT_PATH`"
-ROOTDIR="/usr/share/kvm-wrapper"
-CONFFILE="$ROOTDIR/kvm-wrapper.conf"
 
 test_dir "$ROOTDIR" || fail_exit "Couldn't open kvm-wrapper's root directory :\n$ROOTDIR"
 test_file "$CONFFILE" || fail_exit "Couldn't open kvm-wrapper's configuration file :\n$CONFFILE"
