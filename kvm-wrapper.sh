@@ -413,7 +413,7 @@ function kvm_start_vm ()
 	KVM_SERIALDEV="-serial unix:$SERIAL_FILE,server,nowait"
 
 	# Build kvm exec string
-	local EXEC_STRING="$KVM_BIN -name $VM_NAME -m $KVM_MEM -smp $KVM_CPU_NUM $KVM_NET $KVM_DRIVES -boot $KVM_BOOTDEVICE $KVM_KEYMAP $KVM_OUTPUT $LINUXBOOT $KVM_MONITORDEV $KVM_SERIALDEV -pidfile $PID_FILE $KVM_ADDITIONNAL_PARAMS"
+	local EXEC_STRING="$KVM_BIN -name $VM_NAME -m $KVM_MEM -smp $KVM_CPU_NUM $KVM_NET $KVM_DRIVES $KVM_BOOTDEVICE $KVM_KEYMAP $KVM_OUTPUT $LINUXBOOT $KVM_MONITORDEV $KVM_SERIALDEV -pidfile $PID_FILE $KVM_ADDITIONNAL_PARAMS"
 
 	# More sanity checks : VM running, monitor socket existing, etc.
 	if [[ -z "$FORCE" ]]; then
