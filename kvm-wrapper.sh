@@ -387,7 +387,7 @@ function kvm_start_vm ()
 	# Build KVM Drives (hdd, cdrom) parameters
 	local KVM_DRIVES=""
 	KVM_DRIVE_IF="${KVM_DRIVE_IF:-ide}"
-	[[ -n "$KVM_DISK1" ]] && KVM_DRIVES="$KVM_DRIVES -drive file=\"$KVM_DISK1\",if=$KVM_DRIVE_IF,boot=on"
+	[[ -n "$KVM_DISK1" ]] && KVM_DRIVES="$KVM_DRIVES -drive file=\"$KVM_DISK1\",if=$KVM_DRIVE_IF"
 	[[ -n "$KVM_DISK2" ]] && KVM_DRIVES="$KVM_DRIVES -drive file=\"$KVM_DISK2\",if=$KVM_DRIVE_IF"
 	[[ -n "$KVM_DISK3" ]] && KVM_DRIVES="$KVM_DRIVES -drive file=\"$KVM_DISK3\",if=$KVM_DRIVE_IF"
 	[[ -n "$KVM_DISK4" ]] && KVM_DRIVES="$KVM_DRIVES -drive file=\"$KVM_DISK4\",if=$KVM_DRIVE_IF"
