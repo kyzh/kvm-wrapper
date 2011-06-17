@@ -167,7 +167,7 @@ EOF
 	umount "$MNTDIR"
 
 	# Start VM to debootstrap, second stage
-	desc_update_setting "KVM_NETWORK_MODEL" "virtio"
+	desc_update_setting "KVM_NETWORK_MODEL" "virtio" #put vhost_net if supported
 	test_blockdev "$KVM_DISK1" \
 		&& desc_update_setting "KVM_DRIVE_IF" "virtio$BOOTSTRAP_DISK_OPTIONS"
 	desc_update_setting "KVM_KERNEL" "$BOOTSTRAP_KERNEL"
@@ -176,6 +176,7 @@ EOF
 	
 
 	kvm_init_env "$VM_NAME"
+
 
 	kvm_start_vm "$VM_NAME"
 
@@ -191,7 +192,7 @@ EOF
 	# Copy some files/configuration from host
 	bs_copy_from_host /etc/hosts
 	bs_copy_from_host /etc/resolv.conf
-	echo "Europe/Paris" > "$MNTDIR/etc/hostname"
+	bs_copy_from_host /etc/timezone || true
 	bs_copy_from_host /etc/localtime
 
 
@@ -236,23 +237,22 @@ EOF
 
 	sed -i -e 's/root:\*:/root::/' "$MNTDIR/etc/shadow" # squeeze sucks. no, really, I mean it.
 
-  sed -i -e "s@DEBIAN_MIRROR@$BOOTSTRAP_DEBIAN_MIRROR@" "$MNTDIR/etc/apt/sources.list"
-  sed -i -e "s/FLAVOR/$BOOTSTRAP_FLAVOR/" "$MNTDIR/etc/apt/sources.list"
+	sed -i -e "s@DEBIAN_MIRROR@$BOOTSTRAP_DEBIAN_MIRROR@" "$MNTDIR/etc/apt/sources.list"
+	sed -i -e "s/FLAVOR/$BOOTSTRAP_FLAVOR/" "$MNTDIR/etc/apt/sources.list"
+
+	if [[ "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then
+		desc_remove_setting "KVM_KERNEL"
+		desc_remove_setting "KVM_INITRD"
+		desc_remove_setting "KVM_APPEND"
+	else
+		desc_update_setting "KVM_APPEND" "root=$rootdev ro"
+	fi
 
 	if [[ -n "$BOOTSTRAP_FINALIZE_COMMAND" ]]; then
 		eval "$BOOTSTRAP_FINALIZE_COMMAND"
 	fi	
 
 	sync
-
-	desc_update_setting "KVM_APPEND" "root=$rootdev ro"
-#	desc_update_setting "KVM_NETWORK_MODEL" "vhost_net"
-
-	if [[ "$BOOTSTRAP_PARTITION_TYPE" == "msdos" ]]; then
-		desc_remove_setting "KVM_KERNEL"
-		desc_remove_setting "KVM_INITRD"
-		desc_remove_setting "KVM_APPEND"
-	fi
 } 2>&1 | tee -a "$LOGFILE"
 }
 
