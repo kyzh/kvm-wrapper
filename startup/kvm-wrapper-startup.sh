@@ -1,8 +1,17 @@
-#!/bin/sh
+#!/bin/bash
+### BEGIN INIT INFO
+# Provides:          kvm-wrapper
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: kcm-wrapper init script
+# Description:       This script starts a list of VMs and stops the running
+#                    ones when asked to
+### END INIT INFO
 
-# kvm-wrapper startup init script
-# This scripts starts/stops a list a VMs using the kvm-wrapper script
 # -- bencoh, 2009/08/11
+# -- Asmadeus, 2011/06
 
 SCRIPTNAME=/etc/init.d/kvm-wrapper
 
@@ -56,10 +65,9 @@ done
 
 do_stop()
 {
-grep -E -v '^#' "$KVM_VM_LIST" |
+"$KVM_WRAPPER" list|pcregrep "Running\ton (`hostname -s`|local)"|awk '{print $1}'|
 while read line
 do
-	pcregrep "^KVM_CLUSTER_NODE=\"?`hostname -s`" $KVM_WRAPPER_DIR/vm/$line-vm >&/dev/null && \
 	stop_vm "$line"
 done
 }
