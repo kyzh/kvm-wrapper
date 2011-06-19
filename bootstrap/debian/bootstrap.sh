@@ -1,8 +1,9 @@
 #!/bin/bash
-# Bootstrap VM
 #
-# -- bencoh, 2010/07/11
-# -- asmadeus, 2010/07
+# Bootstrap VM
+# Copyright (C) 2011 Benjamin Cohen <bencoh@codewreck.org>
+#                    Dominique Martinet <asmadeus@codewreck.org>
+# Published under the WTFPLv2 (see LICENSE)
 
 if [[ "`uname -m`" == "x86_64" ]]; then
 	ARCH_SUFFIX="amd64"

@@ -1,4 +1,6 @@
 # kvm-wrapper completion
+# Copyright (C) 2011 Dominique Martinet <asmadeus@codewreck.org>
+# Published under the WTFPLv2 (see LICENSE)
 
 have kvm-wrapper &&
 _kvm_wrapper()
