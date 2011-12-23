@@ -5,62 +5,81 @@
 have kvm-wrapper &&
 _kvm_wrapper()
 {
-    local cur prev vms
+	local cur command vms
+	local ROOTDIR=/usr/share/kvm-wrapper
 
-    COMPREPLY=()
-    cur=`_get_cword`
-    prev=${COMP_WORDS[COMP_CWORD-1]}
+	COMPREPLY=()
+	cur=`_get_cword`
+	command=${COMP_WORDS[1]}
 
-    if [[ "$cur" == -* ]]; then
-        COMPREPLY=( $( compgen -W 'start stop list screen create bootstrap remove edit create-disk status' -- "$cur" ) )
-        return 0
-    fi
+	if [[ "$COMP_CWORD" == "1" ]]; then
+		COMPREPLY=( $( compgen -W 'help attach create-desc start stop list screen create bootstrap remove edit create-disk status mount-disk umount-disk migrate receive-migrate save-state load-state balloon monitor serial' -- "$cur" ) )
+		return 0
+	fi
 
-    case "$prev" in
-        list|create-desc)
-            return 0
-            ;;
-        help)
-            COMPREPLY=( $( compgen -W "create" -- "$cur" ) )
-            return 0
-            ;;
-        create)
-#            COMPREPLY=( $( compgen -W '-m --mem -s --size -e --edit -c --cpu' -- "$cur" ) )
-            return 0
-            ;;
-    esac
-    local ROOTDIR=/usr/share/kvm-wrapper
-    . $ROOTDIR/kvm-wrapper.conf >&/dev/null #complains random_mac isn't defined, but doesn't matter to us...
-    case "$prev" in
-        start|screen|bootstrap|create-disk|remove|mount-disk|load-state)
-			if [[ -n "`\ls -1 $PID_DIR/*-vm.pid 2>/dev/null`" ]]; then 
-	            vms=`\ls -1 $ROOTDIR/vm/*-vm|sed -e "s:$ROOTDIR/vm/::g" -e 's/-vm//g'|grep -v -x -F "$(\ls -1 $PID_DIR/*-vm.pid|sed -e "s@$PID_DIR/.*:@@g" -e 's/-vm.pid//g')"`
-			else
-	            vms=`\ls -1 $ROOTDIR/vm/*-vm|sed -e "s:$ROOTDIR/vm/::g" -e 's/-vm//g'`
-			fi
-   	        COMPREPLY=( $( compgen -W "$vms" -- "$cur" ) )
-       	    return 0
-            ;;
-        stop|status|attach|migrate|save-state|balloon|monitor|serial)
-            vms=`\ls -1 $PID_DIR/*-vm.pid 2>/dev/null |sed -e "s@$PID_DIR/.*:@@g" -e 's/-vm.pid//g'`
-            COMPREPLY=( $( compgen -W "$vms" -- "$cur" ) )
-            return 0
-            ;;
-        edit)
-            vms=`\ls -1 $ROOTDIR/vm/*-vm|sed -e "s:$ROOTDIR/vm/::g" -e 's/-vm//g'`
-            COMPREPLY=( $( compgen -W "$vms" -- "$cur" ) )
-            return 0
-            ;;
-		umount-disk)
-			vms=`\ls -1 /mnt|sed -e 's:/mnt/::'`
-            COMPREPLY=( $( compgen -W "$vms" -- "$cur" ) )
-            return 0
-            ;;
-    esac
+	if [[ "$COMP_CWORD" == "2" ]]; then
+		case "$command" in
+			create-desc)
+				return 0
+				;;
+			help)
+				COMPREPLY=( $( compgen -W "create" -- "$cur" ) )
+				return 0
+				;;
+			create)
+#				COMPREPLY=( $( compgen -W '-m --mem -s --size -e --edit -c --cpu' -- "$cur" ) )
+				return 0
+				;;
+		esac
+		. $ROOTDIR/kvm-wrapper.conf >&/dev/null #complains random_mac isn't defined, but doesn't matter to us...
+		case "$command" in
+			start|screen|bootstrap|create-disk|remove|mount-disk|load-state)
+				if [[ -n "`\ls -1 $PID_DIR/*-vm.pid 2>/dev/null`" ]]; then 
+					vms=`\ls -1 $ROOTDIR/vm/*-vm|sed -e "s:$ROOTDIR/vm/::g" -e 's/-vm//g'|grep -v -x -F "$(\ls -1 $PID_DIR/*-vm.pid|sed -e "s@$PID_DIR/.*:@@g" -e 's/-vm.pid//g')"`
+				else
+					vms=`\ls -1 $ROOTDIR/vm/*-vm|sed -e "s:$ROOTDIR/vm/::g" -e 's/-vm//g'`
+				fi
+	   			COMPREPLY=( $( compgen -W "$vms" -- "$cur" ) )
+		   		return 0
+				;;
+			stop|status|attach|migrate|save-state|balloon|monitor|serial)
+				vms=`\ls -1 $PID_DIR/*-vm.pid 2>/dev/null |sed -e "s@$PID_DIR/.*:@@g" -e 's/-vm.pid//g'`
+				COMPREPLY=( $( compgen -W "$vms" -- "$cur" ) )
+				return 0
+				;;
+			edit)
+				vms=`\ls -1 $ROOTDIR/vm/*-vm|sed -e "s:$ROOTDIR/vm/::g" -e 's/-vm//g'`
+				COMPREPLY=( $( compgen -W "$vms" -- "$cur" ) )
+				return 0
+				;;
+			umount-disk)
+				vms=`\ls -1 /mnt|sed -e 's:/mnt/::'`
+				COMPREPLY=( $( compgen -W "$vms" -- "$cur" ) )
+				return 0
+				;;
+			list)
+				local nodes=`grep -e '^set_cluster_host' $ROOTDIR/kvm-cluster.conf | cut -d' ' -f2`
+				COMPREPLY=( $( compgen -W "$nodes" -- "$cur" ) )
+				return 0
+				;;
+		esac
+	fi
 
-   _expand || return 0
+	if [[ "$COMP_CWORD" == "3" ]]; then
+		case "$command" in
+			migrate)
+				vms="${COMP_WORDS[2]}"
+				. "$ROOTDIR/vm/$vms-vm"
+#				echo $KVM_CLUSTER_NODE -- $vms
+				local nodes=`grep -e '^set_cluster_host' $ROOTDIR/kvm-cluster.conf | cut -d' ' -f2 |grep -v $KVM_CLUSTER_NODE`
+				COMPREPLY=( $( compgen -W "$nodes" -- "$cur" ) )
+				return 0
+				;;
+		esac
+	fi		
 
-    COMPREPLY=( $( compgen -W 'help attach create-desc start stop list screen create bootstrap remove edit create-disk status mount-disk umount-disk migrate receive-migrate save-state load-state balloon monitor serial' -- "$cur" ) )
+	_expand || return 0
+
 } &&
 complete -F _kvm_wrapper $filenames kvm-wrapper
 

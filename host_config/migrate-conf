@@ -1,0 +1,7 @@
+sed -i -e 's/KVM_NETWORK_MODEL="virtio"/KVM_NETWORK_MODEL="vhost_net"/' \
+    -e 's/KVM_DRIVE_IF="virtio,cache=none,aio=native"/KVM_DRIVE_OPT=",cache=none,aio=native"\nKVM_DRIVE_IF="virtio-blk-pci"/' \
+    -e 's/KVM_DRIVE_IF="virtio"/KVM_DRIVE_OPT="" # ",cache=none,aio=native"\nKVM_DRIVE_IF="virtio-blk-pci"/' \
+    -e 's/KVM_DRIVE_IF="ide"/KVM_DRIVE_OPT="" # ",cache=none,aio=native"\nKVM_DRIVE_IF="ide-hd"\nKVM_DRIVE1_IF="ide-hd,bus=ide.0,unit=0"/' \
+    -e 's/KVM_DRIVE_IF="ide,cache=none,aio=native"/KVM_DRIVE_OPT=",cache=none,aio=native"\nKVM_DRIVE_IF="ide-hd"\nKVM_DRIVE1_IF="ide-hd,bus=ide.0,unit=0"/' \
+    -e 's/KVM_BOOTDEVICE="c"/KVM_BOOTDEVICE="-boot order=c"/' \
+    "$1"
