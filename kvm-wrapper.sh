@@ -875,6 +875,11 @@ function kvm_remove_vm ()
 	test_exist "$VM_DESCRIPTOR" && fail_exit "Failed to remove descriptor $VM_DSCRIPTOR."
 }
 
+function kvm_edit_conf ()
+{
+	eval "$EDITOR" "$CONFFILE"
+}
+
 function print_help ()
 {
 	case "$1" in
@@ -962,6 +967,10 @@ case "$1" in
 			shift
 			kvm_build_vm $@
 		else print_help; fi
+		exit 0
+		;;
+	conf)
+		kvm_edit_conf
 		exit 0
 		;;
 	help)
