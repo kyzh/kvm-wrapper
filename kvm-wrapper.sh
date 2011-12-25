@@ -136,7 +136,7 @@ function wait_test_timelimit ()
 function kvm_init_env ()
 {
 	VM_NAME="$1"
-	[[ -z "$KVM_CLUSTER_NODE" ]] && KVM_CLUSTER_NODE="local"
+	KVM_CLUSTER_NODE=local
 	VM_DESCRIPTOR="$VM_DIR/$VM_NAME-vm"
 	MONITOR_FILE="$MONITOR_DIR/$VM_NAME.unix"
 	SERIAL_FILE="$SERIAL_DIR/$VM_NAME.unix"
