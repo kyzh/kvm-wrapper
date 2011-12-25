@@ -410,7 +410,7 @@ function kvm_top ()
 {
 	local nodelist="{local,$KVM_CLUSTER_NODE}"
 	local pattern="$PID_DIR/$nodelist:*-vm.pid"
-	pidlist=$(eval cat $pattern 2>/dev/null | xargs | sed 's/ /,/g')
+	pidlist=$(eval cat $pattern 2>/dev/null | sed -e ':a;N;s/\n/,/;ta')
 	top -d 2 -cp $pidlist
 }
 
