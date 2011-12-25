@@ -406,6 +406,14 @@ function kvm_status ()
 	fi
 }
 
+function kvm_top ()
+{
+	local nodelist="{local,$KVM_CLUSTER_NODE}"
+	local pattern="$PID_DIR/$nodelist:*-vm.pid"
+	pidlist=$(eval cat $pattern 2>/dev/null | xargs | sed 's/ /,/g')
+	top -d 2 -cp $pidlist
+}
+
 # Main function : start a virtual machine
 function kvm_start_vm ()
 {
@@ -904,6 +912,8 @@ function print_help ()
 	echo -e ""
 	echo -e "       $SCRIPT_NAME status [virtual-machine]"
 	echo -e "       $SCRIPT_NAME list [node]"
+	echo -e "       $SCRIPT_NAME top"
+	echo -e "       $SCRIPT_NAME conf"
 	echo
 	echo -e "       $SCRIPT_NAME balloon virtual-machine target_RAM"
 	echo -e "       $SCRIPT_NAME create [flags] virtual-machine #for flag list, try $SCRIPT_NAME help create"
@@ -942,6 +952,10 @@ case "$1" in
 		if [[ -n "$2" ]]; then 
 			kvm_status "$2"
 		else kvm_status "all"; fi
+		exit 0
+		;;
+	top)
+		kvm_top
 		exit 0
 		;;
 	rundisk)

@@ -13,7 +13,7 @@ _kvm_wrapper()
 	command=${COMP_WORDS[1]}
 
 	if [[ "$COMP_CWORD" == "1" ]]; then
-		COMPREPLY=( $( compgen -W 'help attach create-desc start stop list screen create bootstrap remove edit create-disk status mount-disk umount-disk migrate receive-migrate save-state load-state balloon monitor serial conf' -- "$cur" ) )
+		COMPREPLY=( $( compgen -W 'help attach create-desc start stop list screen create bootstrap remove edit create-disk status mount-disk umount-disk migrate receive-migrate save-state load-state balloon monitor serial conf top' -- "$cur" ) )
 		return 0
 	fi
 
