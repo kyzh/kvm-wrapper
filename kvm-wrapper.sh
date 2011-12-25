@@ -154,8 +154,8 @@ function kvm_init_env ()
 
 function random_mac ()
 {
-	local MACADDRESS="52:54:00:ff:`(date; cat /proc/interrupts) |
-		md5sum | sed -e 's/\(..\)\(..\).*/\1:\2/'`"
+  BASE_MAC=${BASE_MAC:-"52:54:00:ff"}
+	local MACADDRESS=`printf "$BASE_MAC:%02x:%02x" $((RANDOM % 256)) $((RANDOM % 256))`
 	# check if it's not already used..
 	grep -q "KVM_MACADDRESS=\"$MACADDRESS\"" $VM_DIR/*-vm \
 		&& random_mac \
