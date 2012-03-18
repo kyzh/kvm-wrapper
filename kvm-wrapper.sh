@@ -544,7 +544,7 @@ function kvm_run_disk ()
 	require_exec "$KVM_BIN"
 	KVM_DISK1="$1"
 	prepare_disks "$KVM_DISK1"
-	test_file_rw "$KVM_DISK1" || "Couldn't read/write image file :\n$KVM_DISK1"
+	test_file_rw "$KVM_DISK1" || fail_exit "Error: Couldn't read/write image file:\n$KVM_DISK1"
 
 	# Build kvm exec string
 	local EXEC_STRING="$KVM_BIN -net nic,model=$KVM_NETWORK_MODEL,macaddr=$KVM_MACADDRESS -net tap -hda $KVM_DISK1 -boot c $KVM_KEYMAP $KVM_OUTPUT $KVM_ADDITIONNAL_PARAMS"
