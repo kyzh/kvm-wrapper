@@ -456,7 +456,7 @@ function kvm_start_vm ()
 	KVM_SERIALDEV="-serial unix:$SERIAL_FILE,server,nowait"
 
 	# Build kvm exec string
-	local EXEC_STRING="$KVM_BIN -name $VM_NAME -m $KVM_MEM -smp $KVM_CPU_NUM $KVM_NET $KVM_DRIVES $KVM_BOOTDEVICE $KVM_KEYMAP $KVM_OUTPUT $LINUXBOOT $KVM_MONITORDEV $KVM_SERIALDEV -pidfile $PID_FILE $KVM_ADDITIONNAL_PARAMS"
+	local EXEC_STRING="$KVM_BIN -name $VM_NAME,process="kvm-$VM_NAME" -m $KVM_MEM -smp $KVM_CPU_NUM $KVM_NET $KVM_DRIVES $KVM_BOOTDEVICE $KVM_KEYMAP $KVM_OUTPUT $LINUXBOOT $KVM_MONITORDEV $KVM_SERIALDEV -pidfile $PID_FILE $KVM_ADDITIONNAL_PARAMS"
 
 	# More sanity checks : VM running, monitor socket existing, etc.
 	if [[ -z "$FORCE" ]]; then
@@ -994,6 +994,10 @@ case "$1" in
 		;;
 esac
 
+if [[ $# -le 1 ]]; then
+	print_help
+	exit 0
+fi
 kvm_init_env "$2"
 
 test_nodename "$KVM_CLUSTER_NODE" && { run_remote $KVM_CLUSTER_NODE $ROOTDIR/kvm-wrapper.sh $@; exit $?; }
