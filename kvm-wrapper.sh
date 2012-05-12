@@ -576,20 +576,24 @@ function kvm_monitor ()
 {
 	! test_exist "$PID_FILE" && fail_exit "Error : $VM_NAME doesn't seem to be running."
 	! test_socket_rw "$MONITOR_FILE" && fail_exit "Error : could not open monitor socket $MONITOR_FILE."
-	echo "Attaching monitor unix socket (using socat). Press ^D (EOF) to exit"
-	socat READLINE unix:"$MONITOR_FILE"
-	echo "Monitor exited"
+	echo "Attaching monitor unix socket (using socat). Press ^D (EOF) to exit" >&2
+	local socatin="-"
+	tty >/dev/null 2>&1 && socatin="READLINE"
+	socat $socatin unix:"$MONITOR_FILE"
+	echo "Monitor exited" >&2
 }
 
 function kvm_serial ()
 {
 	! test_exist "$PID_FILE" && fail_exit "Error : $VM_NAME doesn't seem to be running."
 	! test_socket_rw "$SERIAL_FILE" && fail_exit "Error : could not open serial socket $SERIAL_FILE."
-	echo "Attaching serial console unix socket (using socat). Press ^] to exit"
-	socat -,IGNBRK=0,BRKINT=0,PARMRK=0,ISTRIP=0,INLCR=0,IGNCR=0,ICRNL=0,IXON=0,OPOST=1,ECHO=0,ECHONL=0,ICANON=0,ISIG=0,IEXTEN=0,CSIZE=0,PARENB=0,CS8,escape=0x1d unix:"$SERIAL_FILE"
+	echo "Attaching serial console unix socket (using socat). Press ^] to exit" >&2
+	local socatin="-"
+	tty >/dev/null 2>&1 && socatin="-,IGNBRK=0,BRKINT=0,PARMRK=0,ISTRIP=0,INLCR=0,IGNCR=0,ICRNL=0,IXON=0,OPOST=1,ECHO=0,ECHONL=0,ICANON=0,ISIG=0,IEXTEN=0,CSIZE=0,PARENB=0,CS8,escape=0x1d" 
+	socat $socatin unix:"$SERIAL_FILE"
 	[[ "xx$?" != "xx0" ]] && fail_exit "socat must be of version > 1.7.0 to work"
 	stty sane
-	echo "Serial console exited"
+	echo "Serial console exited" >&2
 }
 
 function kvm_list ()
