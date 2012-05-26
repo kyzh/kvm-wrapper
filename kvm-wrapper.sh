@@ -449,39 +449,39 @@ function kvm_start_vm ()
 	local KVM_NET=""
 
 	#backward compatibility
-	KVM_MACADDR0="${KVM_MACADDR0-KVM_MACADDRESS}"
-	KVM_IF0="${KVM_IF0-KVM_NETWORK_MODEL}"
+	KVM_MACADDR0="${KVM_MACADDR0-$KVM_MACADDRESS}"
+	KVM_IF0="${KVM_IF0-$KVM_NETWORK_MODEL}"
 	[[ "$KVM_IF0" = "vhost_net" ]] && (KVM_NET_OPT0=",vhost=on"; KVM_IF0="virtio-net-pci")
-	KVM_BR0="${KVM_BR0-KVM_BRIDGE}"
+	KVM_BR0="${KVM_BR0-$KVM_BRIDGE}"
 
-	# Check for the bridge-specific symlinks an' make them otherwise
-	for KVM_BR in "$KVM_BR0" "$KVM_BR1" "$KVM_BR2" "$KVM_BR3"; do
+	# Check for the bridge-specific symlinks an' make them otherwise (no quotes on $KVM_BR* because it would otherwise try to create kvm--ifup)
+	for KVM_BR in $KVM_BR0 $KVM_BR1 $KVM_BR2 $KVM_BR3; do
 		test_exist "$KVM_NET_SCRIPT/kvm-$KVM_BR-ifup" || \
-			(cd "$KVM_NET_SCRIPT"; ln -s "kvm-$KVM_BR0-ifup" kvm-ifup)
+			(cd "$KVM_NET_SCRIPT"; ln -s kvm-ifup "kvm-$KVM_BR-ifup")
 		test_exist "$KVM_NET_SCRIPT/kvm-$KVM_BR-ifdown" || \
-			(cd "$KVM_NET_SCRIPT"; ln -s "kvm-$KVM_BR0-ifdown" kvm-ifdown)
+			(cd "$KVM_NET_SCRIPT"; ln -s kvm-ifdown "kvm-$KVM_BR-ifdown")
 	done
 
 
 	[[ -n "$KVM_MACADDR0" ]] && KVM_NET+="-netdev type=tap,id=guest0,script=$KVM_NET_SCRIPT/kvm-$KVM_BR0-ifup,downscript=$KVM_NET_SCRIPT/kvm-$KVM_BR0-ifdown$KVM_NET_OPT0 -device $KVM_IF0,netdev=guest0,mac=$KVM_MACADDR0"
-	[[ -n "$KVM_MACADDR1" ]] && (
-		KVM_IF1="${KVM_IF1-KVM_IF0}"
-		KVM_NET_OPT1="${KVM_NET_OPT1-KVM_NET_OPT0}"
-		KVM_BR1="${KVM_BR1-KVM_BR0}"
+	[[ -n "$KVM_MACADDR1" ]] && {
+		KVM_IF1="${KVM_IF1-$KVM_IF0}"
+		KVM_NET_OPT1="${KVM_NET_OPT1-$KVM_NET_OPT0}"
+		KVM_BR1="${KVM_BR1-$KVM_BR0}"
 		KVM_NET+=" -netdev type=tap,id=guest1,script=$KVM_NET_SCRIPT/kvm-$KVM_BR1-ifup,downscript=$KVM_NET_SCRIPT/kvm-$KVM_BR1-ifdown$KVM_NET_OPT1 -device $KVM_IF1,netdev=guest1,mac=$KVM_MACADDR1"
-	)
-	[[ -n "$KVM_MACADDR2" ]] && (
-		KVM_IF2="${KVM_IF2-KVM_IF0}"
-		KVM_NET_OPT2="${KVM_NET_OPT2-KVM_NET_OPT0}"
-		KVM_BR2="${KVM_BR2-KVM_BR0}"
+	}
+	[[ -n "$KVM_MACADDR2" ]] && {
+		KVM_IF2="${KVM_IF2-$KVM_IF0}"
+		KVM_NET_OPT2="${KVM_NET_OPT2-$KVM_NET_OPT0}"
+		KVM_BR2="${KVM_BR2-$KVM_BR0}"
 		KVM_NET+=" -netdev type=tap,id=guest2,script=$KVM_NET_SCRIPT/kvm-$KVM_BR2-ifup,downscript=$KVM_NET_SCRIPT/kvm-$KVM_BR2-ifdown$KVM_NET_OPT2 -device $KVM_IF2,netdev=guest2,mac=$KVM_MACADDR2"
-	)
-	[[ -n "$KVM_MACADDR3" ]] && (
-		KVM_IF3="${KVM_IF3-KVM_IF0}"
-		KVM_NET_OPT3="${KVM_NET_OPT3-KVM_NET_OPT0}"
-		KVM_BR3="${KVM_BR3-KVM_BR0}"
+	}
+	[[ -n "$KVM_MACADDR3" ]] && {
+		KVM_IF3="${KVM_IF3-$KVM_IF0}"
+		KVM_NET_OPT3="${KVM_NET_OPT3-$KVM_NET_OPT0}"
+		KVM_BR3="${KVM_BR3-$KVM_BR0}"
 		KVM_NET+=" -netdev type=tap,id=guest3,script=$KVM_NET_SCRIPT/kvm-$KVM_BR3-ifup,downscript=$KVM_NET_SCRIPT/kvm-$KVM_BR3-ifdown$KVM_NET_OPT3 -device $KVM_IF3,netdev=guest3,mac=$KVM_MACADDR3"
-	)
+	}
 
 	# Monitor/serial devices
 	KVM_MONITORDEV="-monitor unix:$MONITOR_FILE,server,nowait"
