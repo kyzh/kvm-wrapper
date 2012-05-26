@@ -155,11 +155,11 @@ function kvm_init_env ()
 function random_mac ()
 {
   BASE_MAC=${BASE_MAC:-"52:54:00:ff"}
-	local MACADDRESS=`printf "$BASE_MAC:%02x:%02x" $((RANDOM % 256)) $((RANDOM % 256))`
+	local MACADDR=`printf "$BASE_MAC:%02x:%02x" $((RANDOM % 256)) $((RANDOM % 256))`
 	# check if it's not already used..
-	grep -q "KVM_MACADDRESS=\"$MACADDRESS\"" $VM_DIR/*-vm \
+	grep -qe "KVM_MACADDR.*=\"$MACADDR\"" $VM_DIR/*-vm \
 		&& random_mac \
-		|| echo -n $MACADDRESS
+		|| echo -n $MACADDR
 }
 
 # cluster helpers
@@ -435,28 +435,59 @@ function kvm_start_vm ()
 	[[ -n "$KVM_CDROM" ]] && KVM_DRIVES="$KVM_DRIVES -cdrom \"$KVM_CDROM\""
 	[[ "$KVM_DRIVES" == "" ]] && [[ "$KVM_BOOTDEVICE" != "n" ]] && fail_exit "Your VM $VM_NAME should at least use one cdrom or harddisk drive !\nPlease check your conf file :\n$VM_DESCRIPTOR"
 	local LINUXBOOT=""
-	[[ -n "$KVM_KERNEL" ]] && LINUXBOOT="$LINUXBOOT -kernel \"$KVM_KERNEL\""
-	[[ -n "$KVM_INITRD" ]] && LINUXBOOT="$LINUXBOOT -initrd \"$KVM_INITRD\""
-	[[ -n "$KVM_APPEND" ]] && LINUXBOOT="$LINUXBOOT -append \"$KVM_APPEND\""
+	[[ -n "$KVM_KERNEL" ]] && LINUXBOOT+=" -kernel \"$KVM_KERNEL\""
+	[[ -n "$KVM_INITRD" ]] && LINUXBOOT+=" -initrd \"$KVM_INITRD\""
+	[[ -n "$KVM_APPEND" ]] && LINUXBOOT+=" -append \"$KVM_APPEND\""
 
 	# If drive is a lv in the main vg, activate the lv
 	prepare_disks "$KVM_DISK1" "$KVM_DISK2" "$KVM_DISK3" "$KVM_DISK4"
 
 	# Network scripts
-	[[ -z "$KVM_BRIDGE" ]] && KVM_BRIDGE="kvmnat"
-	export KVM_BRIDGE
-	KVM_NET_SCRIPT="$ROOTDIR/net/kvm"
+	local KVM_NET_SCRIPT="$ROOTDIR/net"
 
-	[[ "$KVM_NETWORK_MODEL" = "vhost_net" ]] \
-		&& KVM_NET="-netdev type=tap,id=guest0,script=$KVM_NET_SCRIPT-ifup,downscript=$KVM_NET_SCRIPT-ifdown,vhost=on -device virtio-net-pci,netdev=guest0,mac=$KVM_MACADDRESS" \
-		|| KVM_NET="-netdev type=tap,id=guest0,script=$KVM_NET_SCRIPT-ifup,downscript=$KVM_NET_SCRIPT-ifdown -device $KVM_NETWORK_MODEL,netdev=guest0,mac=$KVM_MACADDRESS" \
+	local KVM_NET=""
+
+	#backward compatibility
+	KVM_MACADDR0="${KVM_MACADDR0-KVM_MACADDRESS}"
+	KVM_IF0="${KVM_IF0-KVM_NETWORK_MODEL}"
+	[[ "$KVM_IF0" = "vhost_net" ]] && (KVM_NET_OPT0=",vhost=on"; KVM_IF0="virtio-net-pci")
+	KVM_BR0="${KVM_BR0-KVM_BRIDGE}"
+
+	# Check for the bridge-specific symlinks an' make them otherwise
+	for KVM_BR in "$KVM_BR0" "$KVM_BR1" "$KVM_BR2" "$KVM_BR3"; do
+		test_exist "$KVM_NET_SCRIPT/kvm-$KVM_BR-ifup" || \
+			(cd "$KVM_NET_SCRIPT"; ln -s "kvm-$KVM_BR0-ifup" kvm-ifup)
+		test_exist "$KVM_NET_SCRIPT/kvm-$KVM_BR-ifdown" || \
+			(cd "$KVM_NET_SCRIPT"; ln -s "kvm-$KVM_BR0-ifdown" kvm-ifdown)
+	done
+
+
+	[[ -n "$KVM_MACADDR0" ]] && KVM_NET+="-netdev type=tap,id=guest0,script=$KVM_NET_SCRIPT/kvm-$KVM_BR0-ifup,downscript=$KVM_NET_SCRIPT/kvm-$KVM_BR0-ifdown$KVM_NET_OPT0 -device $KVM_IF0,netdev=guest0,mac=$KVM_MACADDR0"
+	[[ -n "$KVM_MACADDR1" ]] && (
+		KVM_IF1="${KVM_IF1-KVM_IF0}"
+		KVM_NET_OPT1="${KVM_NET_OPT1-KVM_NET_OPT0}"
+		KVM_BR1="${KVM_BR1-KVM_BR0}"
+		KVM_NET+=" -netdev type=tap,id=guest1,script=$KVM_NET_SCRIPT/kvm-$KVM_BR1-ifup,downscript=$KVM_NET_SCRIPT/kvm-$KVM_BR1-ifdown$KVM_NET_OPT1 -device $KVM_IF1,netdev=guest1,mac=$KVM_MACADDR1"
+	)
+	[[ -n "$KVM_MACADDR2" ]] && (
+		KVM_IF2="${KVM_IF2-KVM_IF0}"
+		KVM_NET_OPT2="${KVM_NET_OPT2-KVM_NET_OPT0}"
+		KVM_BR2="${KVM_BR2-KVM_BR0}"
+		KVM_NET+=" -netdev type=tap,id=guest2,script=$KVM_NET_SCRIPT/kvm-$KVM_BR2-ifup,downscript=$KVM_NET_SCRIPT/kvm-$KVM_BR2-ifdown$KVM_NET_OPT2 -device $KVM_IF2,netdev=guest2,mac=$KVM_MACADDR2"
+	)
+	[[ -n "$KVM_MACADDR3" ]] && (
+		KVM_IF3="${KVM_IF3-KVM_IF0}"
+		KVM_NET_OPT3="${KVM_NET_OPT3-KVM_NET_OPT0}"
+		KVM_BR3="${KVM_BR3-KVM_BR0}"
+		KVM_NET+=" -netdev type=tap,id=guest3,script=$KVM_NET_SCRIPT/kvm-$KVM_BR3-ifup,downscript=$KVM_NET_SCRIPT/kvm-$KVM_BR3-ifdown$KVM_NET_OPT3 -device $KVM_IF3,netdev=guest3,mac=$KVM_MACADDR3"
+	)
 
 	# Monitor/serial devices
 	KVM_MONITORDEV="-monitor unix:$MONITOR_FILE,server,nowait"
 	KVM_SERIALDEV="-serial unix:$SERIAL_FILE,server,nowait"
 
 	# Build kvm exec string
-	local EXEC_STRING="$KVM_BIN -name $VM_NAME,process="kvm-$VM_NAME" -m $KVM_MEM -smp $KVM_CPU_NUM $KVM_NET $KVM_DRIVES $KVM_BOOTDEVICE $KVM_KEYMAP $KVM_OUTPUT $LINUXBOOT $KVM_MONITORDEV $KVM_SERIALDEV -pidfile $PID_FILE $KVM_ADDITIONNAL_PARAMS"
+	local EXEC_STRING="$KVM_BIN -name $VM_NAME,process=\"kvm-$VM_NAME\" -m $KVM_MEM -smp $KVM_CPU_NUM $KVM_NET $KVM_DRIVES $KVM_BOOTDEVICE $KVM_KEYMAP $KVM_OUTPUT $LINUXBOOT $KVM_MONITORDEV $KVM_SERIALDEV -pidfile $PID_FILE $KVM_ADDITIONNAL_PARAMS"
 
 	# More sanity checks : VM running, monitor socket existing, etc.
 	if [[ -z "$FORCE" ]]; then
@@ -547,8 +578,8 @@ function kvm_run_disk ()
 	test_file_rw "$KVM_DISK1" || fail_exit "Error: Couldn't read/write image file:\n$KVM_DISK1"
 
 	# Build kvm exec string
-	local EXEC_STRING="$KVM_BIN -net nic,model=$KVM_NETWORK_MODEL,macaddr=$KVM_MACADDRESS -net tap -hda $KVM_DISK1 -boot c $KVM_KEYMAP $KVM_OUTPUT $KVM_ADDITIONNAL_PARAMS"
-	eval "$EXEC_STRING"
+	local EXEC_STRING="$KVM_BIN -net nic,model=rtl8139,macaddr=`random_mac` -net user -hda $KVM_DISK1 -boot c $KVM_KEYMAP $KVM_OUTPUT $KVM_ADDITIONNAL_PARAMS"
+	echo "$EXEC_STRING"
 
 	unprepare_disks "$KVM_DISK1"
 
@@ -659,7 +690,7 @@ function kvm_create_descriptor ()
 		sed -i "s,##KVM_DISK1,$HDA_LINE,g" "$VM_DESCRIPTOR"
 	fi
 
-	sed -i 's/#KVM_MACADDRESS="`random_mac`/KVM_MACADDRESS="'`random_mac`'/g' "$VM_DESCRIPTOR"
+	sed -i 's/#KVM_MACADDR0="`random_mac`/KVM_MACADDR0="'`random_mac`'/g' "$VM_DESCRIPTOR"
 	sed -i 's/#KVM_CLUSTER_NODE="`hostname -s`/KVM_CLUSTER_NODE="'`hostname -s`'/g' "$VM_DESCRIPTOR"
 	
 

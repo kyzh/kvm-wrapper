@@ -3,6 +3,9 @@
 # Script called by kvm on tap interface deletion
 #
 
+KVM_BR=`basename $0 -ifdown|sed -e 's/^[^-]*-\?//'`
+KVM_BRIDGE=${KVM_BR:-$KVM_BRIGE}
+
 echo "$0:"
 echo "Removing $1 from bridge $KVM_BRIDGE"
 ip link set "$1" down
