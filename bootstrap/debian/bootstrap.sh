@@ -30,7 +30,7 @@ BOOTSTRAP_CACHE="$CACHE_DIR/$BOOTSTRAP_FLAVOR-$DPKG_ARCH-debootstrap.tar"
 function bs_copy_from_host()
 {
 	local FILE="$1"
-	cp -rf --parents "$FILE" "$MNTDIR"
+	cp -rf --parents "$FILE" "$MNTDIR" || true
 }
 
 function bs_copy_conf_dir()
@@ -153,6 +153,7 @@ EOF
 update-locale
 locale-gen
 
+dhclient eth0
 aptitude update
 
 echo "Bootstrap ended, halting"
@@ -201,7 +202,7 @@ EOF
 	# Copy some files/configuration from host
 	bs_copy_from_host /etc/hosts
 	bs_copy_from_host /etc/resolv.conf
-	bs_copy_from_host /etc/timezone || true
+	bs_copy_from_host /etc/timezone
 	bs_copy_from_host /etc/localtime
 
 
@@ -265,6 +266,9 @@ EOF
 	fi	
 
 	sync
+
+	echo "Bootstrap success ($VM_NAME)!"
+
 } 2>&1 | tee -a "$LOGFILE"
 }
 
