@@ -3,6 +3,9 @@
 # Script called by kvm on tap interface creation
 #
 
+KVM_BR=`basename $0 -ifup|sed -e 's/^[^-]*-\?//'`
+KVM_BRIDGE=${KVM_BR:-$KVM_BRIGE}
+
 echo "$0:"
 echo "Adding $1 to bridge interface $KVM_BRIDGE"
 brctl addif "$KVM_BRIDGE" "$1"
