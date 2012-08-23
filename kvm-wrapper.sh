@@ -338,7 +338,7 @@ function desc_update_setting ()
 	local KEY="$1"
 	local VALUE="$2"
 
-	local MATCH="^#*$KEY"
+	local MATCH=$(printf "^#*%q" "$KEY")
 	local NEW="$KEY=\"$VALUE\""
 	sed -i -e "0,/$MATCH/ {
 		s@$MATCH=\?\(.*\)@$NEW ## \1@g
@@ -448,11 +448,13 @@ function kvm_start_vm ()
 
 	local KVM_NET=""
 
-	#backward compatibility
-	KVM_MACADDR[0]="${KVM_MACADDR[0]-$KVM_MACADDRESS}"
-	KVM_IF[0]="${KVM_IF[0]-$KVM_NETWORK_MODEL}"
+	#backward compatibility - prioritize old values because new ones can come from the global config
+	[[ -n "$KVM_MACADDRESS" ]] && {
+		KVM_MACADDR=("$KVM_MACADDRESS")
+		KVM_IF=("${KVM_NETWORK_MODEL-${KVM_IF[0]}}")
+		KVM_BR=("${KVM_BRIDGE-${KVM_BR[0]}}")
+	}
 	[[ "${KVM_IF[0]}" = "vhost_net" ]] && (KVM_NET_OPT[0]=",vhost=on"; KVM_IF[0]="virtio-net-pci")
-	KVM_BR[0]="${KVM_BR[0]-$KVM_BRIDGE}"
 
 	# Check for the bridge-specific symlinks an' make them otherwise (no quotes on $KVM_BR* because it would otherwise try to create kvm--ifup)
 	for KVM_BR in "${KVM_BR[@]}"; do
@@ -464,9 +466,9 @@ function kvm_start_vm ()
 
 
 	[[ "${#KVM_MACADDR[@]}" != 0 ]] && {
+		# not checking KVM_NET_OPT because it _can_ be empty... others will raise an error
 		[[ -z "${KVM_BR[@]:0:1}" ]] && fail_exit "No KVM_BR defined"
 		[[ -z "${KVM_IF[@]:0:1}" ]] && fail_exit "No KVM_IF defined"
-		[[ -z "${KVM_NET_OPT[@]:0:1}" ]] && fail_exit "No KVM_NET_OPT defined"
 		for i in ${!KVM_MACADDR[@]}; do
 			KVM_BR[$i]="${KVM_BR[$i]-${KVM_BR[@]:0:1}}"
 			KVM_IF[$i]="${KVM_IF[$i]-${KVM_IF[@]:0:1}}"
@@ -684,7 +686,7 @@ function kvm_create_descriptor ()
 		sed -i "s,##KVM_DISK1,$HDA_LINE,g" "$VM_DESCRIPTOR"
 	fi
 
-	sed -i 's/#KVM_MACADDR0="`random_mac`/KVM_MACADDR0="'`random_mac`'/g' "$VM_DESCRIPTOR"
+	sed -i 's/#KVM_MACADDR\[0\]="`random_mac`/KVM_MACADDR[0]="'`random_mac`'/g' "$VM_DESCRIPTOR"
 	sed -i 's/#KVM_CLUSTER_NODE="`hostname -s`/KVM_CLUSTER_NODE="'`hostname -s`'/g' "$VM_DESCRIPTOR"
 	
 
