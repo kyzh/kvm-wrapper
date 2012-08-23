@@ -644,9 +644,10 @@ function kvm_create_descriptor ()
 
 	VM_NAME="$1"
 	VM_DESCRIPTOR="$VM_DIR/$VM_NAME-vm"
-	test_exist "$VM_DESCRIPTOR" && fail_exit "Error : $VM_NAME already exists ($VM_DESCRIPTOR found)"
+	test_exist "$VM_DESCRIPTOR" && fail_exit "Error: $VM_NAME already exists ($VM_DESCRIPTOR found)"
 
 	touch "$VM_DESCRIPTOR"
+	test_exist "$VM_DESCRIPTOR" || fail_exit "Error: Could not create $VM_NAME descriptor ($VM_DSECRIPTOR)"
 	echo "# VM $VM_NAME file descriptor" 			>> "$VM_DESCRIPTOR"
 	echo "# Created : `date` on $HOSTNAME by $USER" >> "$VM_DESCRIPTOR"
 	echo "" 										>> "$VM_DESCRIPTOR"
