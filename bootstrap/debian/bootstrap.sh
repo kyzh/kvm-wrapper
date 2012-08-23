@@ -177,8 +177,8 @@ EOF
 	umount "$MNTDIR"
 
 	# Start VM to debootstrap, second stage
-	desc_update_setting "KVM_IF0" "virtio-net-pci"
-	#desc_update_setting "KVM_NET_OPT0" ",vhost=on"
+	desc_update_setting "KVM_IF[0]" "virtio-net-pci"
+	#desc_update_setting "KVM_NET_OPT[0]" ",vhost=on"
 	test_blockdev "$KVM_DISK1" \
 		&& desc_update_setting "KVM_DRIVE_IF" "virtio-blk-pci,scsi=off"
 	desc_update_setting "KVM_KERNEL" "$BOOTSTRAP_KERNEL"
