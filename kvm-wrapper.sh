@@ -470,8 +470,8 @@ function kvm_start_vm ()
 		[[ -z "${KVM_BR[@]:0:1}" ]] && fail_exit "No KVM_BR defined"
 		[[ -z "${KVM_IF[@]:0:1}" ]] && fail_exit "No KVM_IF defined"
 		for i in ${!KVM_MACADDR[@]}; do
-			KVM_BR[$i]="${KVM_BR[i]-${KVM_BR[@]:0:1}}"
-			KVM_IF[$i]="${KVM_IF[i]-${KVM_IF[@]:0:1}}"
+			KVM_BR[$i]="${KVM_BR[i]:-${KVM_BR[@]:0:1}}"
+			KVM_IF[$i]="${KVM_IF[i]:-${KVM_IF[@]:0:1}}"
 			KVM_NET_OPT[$i]="${KVM_NET_OPT[i]-${KVM_NET_OPT[@]:0:1}}"
 			KVM_NET+="-netdev type=tap,id=guest${i},script=$KVM_NET_SCRIPT/kvm-${KVM_BR[i]}-ifup,downscript=$KVM_NET_SCRIPT/kvm-${KVM_BR[i]}-ifdown${KVM_NET_OPT[i]} -device ${KVM_IF[i]},netdev=guest${i},mac=${KVM_MACADDR[i]} "
 		done
