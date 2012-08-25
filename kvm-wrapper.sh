@@ -457,11 +457,11 @@ function kvm_start_vm ()
 	[[ "${KVM_IF[0]}" = "vhost_net" ]] && (KVM_NET_OPT[0]=",vhost=on"; KVM_IF[0]="virtio-net-pci")
 
 	# Check for the bridge-specific symlinks an' make them otherwise (no quotes on $KVM_BR* because it would otherwise try to create kvm--ifup)
-	for KVM_BR in "${KVM_BR[@]}"; do
-		test_exist "$KVM_NET_SCRIPT/kvm-$KVM_BR-ifup" || \
-			(cd "$KVM_NET_SCRIPT"; ln -s kvm-ifup "kvm-$KVM_BR-ifup")
-		test_exist "$KVM_NET_SCRIPT/kvm-$KVM_BR-ifdown" || \
-			(cd "$KVM_NET_SCRIPT"; ln -s kvm-ifdown "kvm-$KVM_BR-ifdown")
+	for BR in "${KVM_BR[@]}"; do
+		test_exist "$KVM_NET_SCRIPT/kvm-$BR-ifup" || \
+			(cd "$KVM_NET_SCRIPT"; ln -s kvm-ifup "kvm-$BR-ifup")
+		test_exist "$KVM_NET_SCRIPT/kvm-$BR-ifdown" || \
+			(cd "$KVM_NET_SCRIPT"; ln -s kvm-ifdown "kvm-$BR-ifdown")
 	done
 
 
@@ -470,9 +470,9 @@ function kvm_start_vm ()
 		[[ -z "${KVM_BR[@]:0:1}" ]] && fail_exit "No KVM_BR defined"
 		[[ -z "${KVM_IF[@]:0:1}" ]] && fail_exit "No KVM_IF defined"
 		for i in ${!KVM_MACADDR[@]}; do
-			KVM_BR[$i]="${KVM_BR[$i]-${KVM_BR[@]:0:1}}"
-			KVM_IF[$i]="${KVM_IF[$i]-${KVM_IF[@]:0:1}}"
-			KVM_NET_OPT[$i]="${KVM_NET_OPT[$i]-${KVM_NET_OPT[@]:0:1}}"
+			KVM_BR[$i]="${KVM_BR[i]-${KVM_BR[@]:0:1}}"
+			KVM_IF[$i]="${KVM_IF[i]-${KVM_IF[@]:0:1}}"
+			KVM_NET_OPT[$i]="${KVM_NET_OPT[i]-${KVM_NET_OPT[@]:0:1}}"
 			KVM_NET+="-netdev type=tap,id=guest${i},script=$KVM_NET_SCRIPT/kvm-${KVM_BR[i]}-ifup,downscript=$KVM_NET_SCRIPT/kvm-${KVM_BR[i]}-ifdown${KVM_NET_OPT[i]} -device ${KVM_IF[i]},netdev=guest${i},mac=${KVM_MACADDR[i]} "
 		done
 	}
