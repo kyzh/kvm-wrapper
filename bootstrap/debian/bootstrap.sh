@@ -76,7 +76,7 @@ EOF
 ,,L,*
 EOF
 		fi
-		PARTDEV=`map_disk $DISKDEV`
+		PARTDEV=`map_disk "$DISKDEV"`
 
 		if [[ -n "$SWAP_SIZE" ]]; then
 			swapdev="${PARTDEV:0:$((${#PARTDEV}-1))}2"
@@ -125,11 +125,11 @@ EOF
 	cat > "$BS_FILE" << EOF
 #!/bin/sh
 export PATH="/usr/sbin:/usr/bin:/sbin:/bin"
+mount -nt proc proc /proc
 mount -no remount,rw /
 cat /proc/mounts
 
 /debootstrap/debootstrap --second-stage
-mount -nt proc proc /proc
 
 echo -e '\n\n\n'
 
