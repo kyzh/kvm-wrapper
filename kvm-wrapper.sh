@@ -18,8 +18,12 @@ function canonpath ()
 # Exit on fail and print a nice message
 function fail_exit ()
 {
-	echo -ne '\n\n\n'
+	echo -ne '\n'
 	echo -e "$1"
+	[[ -n "$STY" ]] && (
+		echo "Press ^D (EOF) or enter to exit"
+		read
+	)
 	echo "Exiting."
 	exit 1
 }
@@ -500,7 +504,9 @@ function kvm_start_vm ()
 	echo $EXEC_STRING
 	echo ""
 	echo ""
-	eval $EXEC_STRING
+	eval "$EXEC_STRING"
+
+	local KVM_RETURN_VALUE="$?"
 
 	# Cleanup files
 	rm -rf "$PID_FILE"
@@ -509,6 +515,9 @@ function kvm_start_vm ()
 
 	# If drive is a lv in the main vg, deactivate the lv
 	unprepare_disks "$KVM_DISK1" "$KVM_DISK2" "$KVM_DISK3" "$KVM_DISK4"
+
+	[[ "$KVM_RETURN_VALUE" != "0" ]] && fail_exit "Something went wrong with kvm execution, read above"
+
 
 	# Exit
 	return 0
