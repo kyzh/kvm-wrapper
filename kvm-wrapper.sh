@@ -161,7 +161,7 @@ function random_mac ()
   BASE_MAC=${BASE_MAC:-"52:54:00:ff"}
 	local MACADDR=`printf "$BASE_MAC:%02x:%02x" $((RANDOM % 256)) $((RANDOM % 256))`
 	# check if it's not already used..
-	grep -qe "KVM_MACADDR.*=\"$MACADDR\"" $VM_DIR/*-vm \
+	grep -qre "KVM_MACADDR.*=\"$MACADDR\"" $VM_DIR \
 		&& random_mac \
 		|| echo -n $MACADDR
 }
@@ -402,6 +402,9 @@ function kvm_status ()
 	then
 		kvm_status_vm "$1"
 	else
+		# Check that there actually are VMs first.
+		ls "$PID_DIR"/*-vm.pid >&/dev/null || fail_exit "No VM yet"
+
 		for KVM_CLUSTER_NODE in `ls -1 $PID_DIR/*-vm.pid|cut -d: -f1|sed -e 's:.*/::'|uniq`
 		do
 			echo "servers on $KVM_CLUSTER_NODE:"
@@ -633,6 +636,9 @@ function kvm_serial ()
 
 function kvm_list ()
 {
+	# Check that there actually are VMs first.
+	ls "$VM_DIR"/*-vm >&/dev/null || fail_exit "No VM to list yet"
+
 	echo "Available VM descriptors :"
 	for file in "$VM_DIR"/*-vm
 	do
