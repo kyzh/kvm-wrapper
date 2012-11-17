@@ -21,11 +21,17 @@ KVM_BIN="/usr/bin/qemu-system-x86_64"
 KVM_IMG_BIN="/usr/bin/qemu-img"
 KVM_NBD_BIN="/usr/bin/qemu-nbd"
 LVM_LVCREATE_BIN="/sbin/lvcreate"
-SCREEN_START_ATTACHED="screen -m -S" #"dtach -A"
-SCREEN_START_DETACHED="screen -d -m -S" #"dtach -n"
-SCREEN_ATTACH="screen -r" #"dtach -a"
-SCREEN_NAME_PREFIX="" #"$RUN_DIR/"
-SCREEN_EXTRA_OPTS="" #"-z -r winch" (+"-e ^]")
+SCREEN_START_ATTACHED="screen -m -S"
+SCREEN_START_DETACHED="screen -d -m -S"
+SCREEN_ATTACH="screen -RR"
+SCREEN_NAME_PREFIX=""
+SCREEN_EXTRA_OPTS=""
+#Uncomment to use dtach:
+#SCREEN_START_ATTACHED="STY=dtach dtach -A"
+#SCREEN_START_DETACHED="STY=dtach dtach -n"
+#SCREEN_ATTACH="dtach -a"
+#SCREEN_NAME_PREFIX="$RUN_DIR/"
+#SCREEN_EXTRA_OPTS="-z -r winch" # change escape key: "-e ^]"
 
 STARTUP_LIST="$ROOTDIR/startup/startup-list"
 
