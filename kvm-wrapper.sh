@@ -21,8 +21,12 @@ function fail_exit ()
 	echo -ne '\n'
 	echo -e "$1"
 	[[ -n "$STY" ]] && (
+		local USE_PID_FILE=""
+		test_exist "$PID_FILE" || USE_PID_FILE="true"
+		[[ -n "$USE_PID_FILE" ]] && echo "error" > "$PID_FILE"
 		echo "Press ^D (EOF) or enter to exit"
 		read
+		[[ -n "$USE_PID_FILE" ]] && rm -f "$PID_FILE"
 	)
 	echo "Exiting."
 	exit 1
@@ -393,7 +397,11 @@ function kvm_status_vm ()
 	kvm_init_env "$1"
 	test_exist "$PID_FILE" || fail_exit "Error : $VM_NAME doesn't seem to be running."
 
-	kvm_status_from_pid `cat "$PID_FILE"`
+	local VM_PID="`cat "$PID_FILE"`"
+
+	[[ "$VM_PID" = "error" ]] \
+		&& echo "VM $VM_NAME is in error state, attach it for more info" \
+		|| kvm_status_from_pid "$VM_PID"
 }
 
 function kvm_status ()
@@ -407,8 +415,15 @@ function kvm_status ()
 
 		for KVM_CLUSTER_NODE in `ls -1 $PID_DIR/*-vm.pid|cut -d: -f1|sed -e 's:.*/::'|uniq`
 		do
-			echo "servers on $KVM_CLUSTER_NODE:"
-			kvm_status_from_pid `cat $PID_DIR/$KVM_CLUSTER_NODE\:*-vm.pid`
+			echo "VMs on $KVM_CLUSTER_NODE:"
+			kvm_status_from_pid `cat "$PID_DIR/$KVM_CLUSTER_NODE:"*-vm.pid|grep -v error`
+
+			echo
+
+			grep -l error "$PID_DIR/$KVM_CLUSTER_NODE:"*-vm.pid | sed -e 's!.*:\(.*\)-vm.pid!\1!' | while read VM_NAME; do
+				echo "VM $VM_NAME is in error state, attach it for more info"
+				echo
+			done
 		done
 	fi
 }
@@ -645,7 +660,11 @@ function kvm_list ()
 		kvm_init_env `basename "${file%"-vm"}"`
 		if [[ -z "$1" || "$1" == "$KVM_CLUSTER_NODE" ]]; then
 			local VM_STATUS="Halted"
-			test_exist "$PID_FILE" && VM_STATUS="Running"
+			test_exist "$PID_FILE" && {
+				[[ "$(cat "$PID_FILE")" = "error" ]] \
+					&& VM_STATUS="Error" \
+					|| VM_STATUS="Running"
+			}
 			printf "\t%-20s\t$VM_STATUS\ton ${KVM_CLUSTER_NODE:-local}\n" "$VM_NAME"
 		fi
 	done
