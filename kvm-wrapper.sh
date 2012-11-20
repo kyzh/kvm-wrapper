@@ -672,6 +672,7 @@ function kvm_list ()
 
 function kvm_edit_descriptor ()
 {
+	[[ -z "$EDITOR" ]] && fail_exit "Please set the EDITOR envvar to your favourite editor."
 	kvm_init_env "$1"
 	test_file "$VM_DESCRIPTOR" && "$EDITOR" "$VM_DESCRIPTOR"
 }
@@ -875,6 +876,7 @@ function kvm_build_vm ()
 			"-e"|"--edit"|"--edit-conf")
 				local EDIT_CONF="yes"
 				shift
+				[[ -z "$EDITOR" ]] && fail_exit "Please set the EDITOR envvar to your favourite editor."
 				;;
 			"--no-bootstrap")
 				local DISABLE_BOOTSTRAP="yes"
@@ -956,6 +958,7 @@ function kvm_remove_vm ()
 
 function kvm_edit_conf ()
 {
+	[[ -z "$EDITOR" ]] && fail_exit "Please set the EDITOR envvar to your favourite editor."
 	eval "$EDITOR" "$CONFFILE"
 }
 
