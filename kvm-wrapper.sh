@@ -20,7 +20,7 @@ function fail_exit ()
 {
 	echo -ne '\n'
 	echo -e "$1"
-	[[ -n "$STY" ]] && (
+	[[ -n "$KVM_SCREEN" ]] && (
 		local USE_PID_FILE=""
 		test_exist "$PID_FILE" || USE_PID_FILE="true"
 		[[ -n "$USE_PID_FILE" ]] && echo "error" > "$PID_FILE"
@@ -611,12 +611,12 @@ function kvm_run_disk ()
 function kvm_start_screen ()
 {
 	check_create_dir "$RUN_DIR"
-	eval $SCREEN_START_ATTACHED "$SCREEN_SESSION_NAME" $SCREEN_EXTRA_OPTS "$SCRIPT_PATH" start-here "$VM_NAME"
+	eval KVM_SCREEN="yes" $SCREEN_START_ATTACHED "$SCREEN_SESSION_NAME" $SCREEN_EXTRA_OPTS "$SCRIPT_PATH" start-here "$VM_NAME"
 }
 
 function kvm_start_screen_detached ()
 {
-	eval $SCREEN_START_DETACHED "$SCREEN_SESSION_NAME" $SCREEN_EXTRA_OPTS "$SCRIPT_PATH" start-here "$VM_NAME"
+	eval KVM_SCREEN="yes" $SCREEN_START_DETACHED "$SCREEN_SESSION_NAME" $SCREEN_EXTRA_OPTS "$SCRIPT_PATH" start-here "$VM_NAME"
 }
 
 function kvm_attach_screen ()
@@ -817,7 +817,7 @@ function kvm_receive_migrate_vm ()
 {
         local PORT="$2"
 
-        $SCREEN_START_DETACHED "$SCREEN_SESSION_NAME" $SCREEN_EXTRA_OPTS "$SCRIPT_PATH" receive-migrate-here "$VM_NAME" "$PORT"
+        eval KVM_SCREEN="yes" $SCREEN_START_DETACHED "$SCREEN_SESSION_NAME" $SCREEN_EXTRA_OPTS "$SCRIPT_PATH" receive-migrate-here "$VM_NAME" "$PORT"
 
         # Wait for the receiving qemu is ready.
         #while ! test_exist $RUN_DIR/migrate-$VM_NAME.sock; do
@@ -1119,7 +1119,7 @@ case "$1" in
 	load-state)
 		if [[ $# -eq 2 ]]; then
 			check_create_dir "$RUN_DIR"
-			$SCREEN_START_ATTACHED "$SCREEN_SESSION_NAME" $SCREEN_EXTRA_OPTS "$SCRIPT_PATH" load-state-here "$VM_NAME"
+			eval KVM_SCREEN="yes" $SCREEN_START_ATTACHED "$SCREEN_SESSION_NAME" $SCREEN_EXTRA_OPTS "$SCRIPT_PATH" load-state-here "$VM_NAME"
 		else print_help; fi
 		;;
 	load-state-here)
