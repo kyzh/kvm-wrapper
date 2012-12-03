@@ -540,7 +540,7 @@ function kvm_start_vm ()
 
 	# More sanity checks: VM running, monitor socket existing, etc.
 	if [[ -z "$FORCE" ]]; then
-		test_exist "$PID_FILE" && fail_exit "VM $VM_NAME seems to be running already.\nPID file $PID_FILE exists"
+		test_pid_from_file "$PID_FILE" && fail_exit "VM $VM_NAME seems to be running already.\nPID file $PID_FILE exists"
 		rm -rf "$MONITOR_FILE"
 		rm -rf "$SERIAL_FILE"
 		test_socket "$MONITOR_FILE" && fail_exit "Monitor socket $MONITOR_FILE already existing and couldn't be removed"	
