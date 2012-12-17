@@ -321,6 +321,30 @@ function lvm_umount_disk()
 	set +e
 }
 
+# PCI assign helper (pci-stub)
+function pci_stubify ()
+{
+	local PCIDOMAIN=$1
+	[[ "$(echo "$PCIDOMAIN" | tr -dc ":" | wc -c)" == "1" ]] && PCIDOMAIN="0000:$PCIDOMAIN"
+
+	local PCI_STUB_DRIVER="/sys/bus/pci/drivers/pci-stub"
+
+	# In case pci-stub is not loaded
+	test_file_rw "$PCI_STUB_DRIVER/new_id" || modprobe pci-stub
+	test_file_rw "$PCI_STUB_DRIVER/new_id" || fail_exit "pci-stub driver not available"
+
+	# Retrieve vendor/device id
+	local PCIVENDOR="$(cat "/sys/bus/pci/devices/$PCIDOMAIN/vendor" |sed 's/^0x//')"
+	PCIVENDOR+=" $(cat "/sys/bus/pci/devices/$PCIDOMAIN/device" |sed 's/^0x//')"
+
+	echo "Unbinding pci device ($PCIDOMAIN [$PCIVENDOR]) and binding to pci-stub"
+
+	# Add id, unbind, and bind
+	echo "$PCIVENDOR" > "$PCI_STUB_DRIVER/new_id"
+	echo "$PCIDOMAIN" > "/sys/bus/pci/devices/$PCIDOMAIN/driver/unbind"
+	echo "$PCIDOMAIN" > "$PCI_STUB_DRIVER/bind"
+}
+
 # Change perms. Meant to run forked.
 function serial_perms_forked()
 {
@@ -470,7 +494,7 @@ function kvm_start_vm ()
 
 	local KVM_NET=""
 
-	#backward compatibility - prioritize old values because new ones can come from the global config
+	# backward compatibility - prioritize old values because new ones can come from the global config
 	[[ -n "$KVM_MACADDRESS" ]] && {
 		KVM_MACADDR=("$KVM_MACADDRESS")
 		KVM_IF=("${KVM_NETWORK_MODEL-${KVM_IF[0]}}")
@@ -487,6 +511,7 @@ function kvm_start_vm ()
 	done
 
 
+	# Iterately build kvmnet string
 	[[ "${#KVM_MACADDR[@]}" != 0 ]] && {
 		# not checking KVM_NET_OPT because it _can_ be empty... others will raise an error
 		[[ -z "${KVM_BR[@]:0:1}" ]] && fail_exit "No KVM_BR defined"
@@ -499,12 +524,19 @@ function kvm_start_vm ()
 		done
 	}
 
+	# PCI passthrough assignement
+	local KVM_PCIASSIGN=""
+	for i in ${!KVM_PCIASSIGN_DOMAIN[@]}; do
+		pci_stubify "${KVM_PCIASSIGN_DOMAIN[$i]}"
+		KVM_PCIASSIGN+="-device pci-assign,id=${KVM_PCIASSIGN_ID[$i]:-pciassign${i}},host=${KVM_PCIASSIGN_DOMAIN[$i]} "
+	done
+
 	# Monitor/serial devices
 	KVM_MONITORDEV="-monitor unix:$MONITOR_FILE,server,nowait"
 	KVM_SERIALDEV="-serial unix:$SERIAL_FILE,server,nowait"
 
 	# Build kvm exec string
-	local EXEC_STRING="$KVM_BIN -name $VM_NAME,process=\"kvm-$VM_NAME\" -m $KVM_MEM -smp $KVM_CPU_NUM $KVM_NET $KVM_DRIVES $KVM_BOOTDEVICE $KVM_KEYMAP $KVM_OUTPUT $LINUXBOOT $KVM_MONITORDEV $KVM_SERIALDEV -pidfile $PID_FILE $KVM_ADDITIONNAL_PARAMS"
+	local EXEC_STRING="$KVM_BIN -name $VM_NAME,process=\"kvm-$VM_NAME\" -m $KVM_MEM -smp $KVM_CPU_NUM $KVM_PCIASSIGN $KVM_NET $KVM_DRIVES $KVM_BOOTDEVICE $KVM_KEYMAP $KVM_OUTPUT $LINUXBOOT $KVM_MONITORDEV $KVM_SERIALDEV -pidfile $PID_FILE $KVM_ADDITIONNAL_PARAMS"
 
 	# More sanity checks: VM running, monitor socket existing, etc.
 	if [[ -z "$FORCE" ]]; then
@@ -937,6 +969,19 @@ function kvm_balloon_vm ()
 	monitor_send_cmd "balloon $1"
 }
 
+function kvm_pci_assign_vm ()
+{
+	! test_exist "$PID_FILE" && fail_exit "Error: $VM_NAME doesn't seem to be running."
+	! test_socket_rw "$MONITOR_FILE" && fail_exit "Error: could not open monitor socket $MONITOR_FILE."
+
+	local DOMAIN="$1"
+	pci_stubify "$DOMAIN"
+	local devid=""
+	[[ -n "$2" ]] && devid=",id=$2"
+
+	monitor_send_cmd "device_add pci-assign${devid},host=$DOMAIN"
+}
+
 function kvm_remove_vm ()
 {
 
@@ -1003,6 +1048,8 @@ function print_help ()
 	echo -e "       $SCRIPT_NAME conf"
 	echo
 	echo -e "       $SCRIPT_NAME balloon virtual-machine target_RAM"
+	echo -e "       $SCRIPT_NAME pci-assign virtual-machine pci-domain [devname]"
+
 	echo -e "       $SCRIPT_NAME create [flags] virtual-machine #for flag list, try $SCRIPT_NAME help create"
 	echo -e "       $SCRIPT_NAME create-desc virtual-machine [diskimage [size]]"
 	echo -e "       $SCRIPT_NAME bootstrap virtual-machine"
@@ -1132,6 +1179,14 @@ case "$1" in
 			kvm_balloon_vm "$3"
 		else print_help; fi
 		;;
+	pci-assign)
+		if [[ $# -eq 3 ]]; then
+			kvm_pci_assign_vm "$3"
+		elif [[ $# -eq 4 ]]; then
+			kvm_pci_assign_vm "$3" "$4"
+		else print_help; fi
+		;;
+
 	restart)
 		if [[ $# -eq 2 ]]; then
 			kvm_stop_vm "$2"

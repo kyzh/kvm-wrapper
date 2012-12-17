@@ -62,6 +62,9 @@ KVM_DRIVE_IF="ide-hd"
 KVM_DRIVE_OPT=",cache=none,aio=native"
 #KVM_CDROM
 
+#KVM_PCIASSIGN_DOMAIN[0] # 01:00.0
+#KVM_PCIASSIGN_ID[0]     # "fooidname" (arbitrary string)
+
 KVM_KEYMAP=""
 #KVM_KEYMAP="-k en-us"
 KVM_OUTPUT="-curses"
