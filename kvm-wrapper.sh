@@ -874,13 +874,13 @@ kvm_save_state_vm ()
 	! test_socket_rw "$MONITOR_FILE" && fail_exit "Error: could not open monitor socket $MONITOR_FILE."
 	monitor_send_cmd "stop"
 	monitor_send_cmd "migrate_set_speed 4095m"
-	monitor_send_cmd "migrate \"exec:gzip -c > /var/cache/kvm-wrapper/$VM_NAME-state.gz\""
+	monitor_send_cmd "migrate \"exec:gzip -c > $CACHE_DIR/$VM_NAME-state.gz\""
 	monitor_send_cmd "quit"
 }
 
 kvm_load_state_vm ()
 {
-	KVM_ADDITIONNAL_PARAMS+=" -incoming \"exec: gzip -c -d /var/cache/kvm-wrapper/$VM_NAME-state.gz\""
+	KVM_ADDITIONNAL_PARAMS+=" -incoming \"exec: gzip -c -d $CACHE_DIR/$VM_NAME-state.gz\""
 	FORCE="yes"
 	kvm_start_vm "$2"
 }
